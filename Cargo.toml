@@ -1,0 +1,21 @@
+[package]
+name = "vite-plus-wrangler"
+version = "0.1.0"
+edition = "2021"
+description = "High performance Wrangler config discovery, account guard, and D1 migration engine for Vite+"
+license = "MIT"
+
+[lib]
+name = "vite_plus_wrangler"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "wrangler-rs"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+regex = "1.10"
+walkdir = "2.5"

@@ -1,0 +1,13 @@
+name = "basic-worker"
+main = "src/index.ts"
+account_id = "cafa79bc67a5a702d959109cd442e39f"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "basic-worker-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[env.dev]
+name = "basic-worker-dev"

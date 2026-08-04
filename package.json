@@ -1,0 +1,59 @@
+{
+  "name": "vite-plus-wrangler",
+  "version": "0.1.0",
+  "description": "Cloudflare Wrangler plugin and CLI for the Vite+ toolchain — task wiring, account guards, D1 migrations, and config discovery",
+  "keywords": [
+    "cloudflare",
+    "wrangler",
+    "workers",
+    "d1",
+    "rust",
+    "vite",
+    "vite-plus"
+  ],
+  "license": "MIT",
+  "bin": {
+    "vite-plus-wrangler": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build:cargo": "cargo build --release",
+    "build": "cargo build --release && tsdown src/index.ts src/cli.ts --dts && mkdir -p dist/bin && cp target/release/wrangler-rs* dist/bin/ && chmod +x dist/bin/wrangler-rs*",
+    "test": "vitest run",
+    "test:cargo": "cargo test",
+    "check": "vp lint && vp fmt --check"
+  },
+  "peerDependencies": {
+    "wrangler": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "wrangler": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsdown": "^0.15.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vite-plus": "^0.1.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@11.20.0"
+}

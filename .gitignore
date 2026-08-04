@@ -1,0 +1,9 @@
+node_modules/
+dist/
+target/
+.wrangler/
+*.tsbuildinfo
+.DS_Store
+
+# Rust
+# Cargo.lock IS committed: this crate ships a binary.

@@ -6,6 +6,7 @@ use vite_plus_wrangler::account::check_account;
 use vite_plus_wrangler::config::{load_config, WranglerConfig};
 use vite_plus_wrangler::discovery::discover;
 use vite_plus_wrangler::migrations::{inspect, Severity};
+use vite_plus_wrangler::secrets::{inspect_secrets, Severity as SecretSeverity};
 
 const HELP: &str = "\
 wrangler-rs - Cloudflare config engine for vite-plus-wrangler
@@ -15,6 +16,7 @@ Usage:
   wrangler-rs config <path> [--env <name>] [--json]
   wrangler-rs account-check <path> [--env <name>] [--expect <id>] [--json]
   wrangler-rs migrations <dir> [--json]
+  wrangler-rs secrets-check [path] [--json]
 
 Options:
   --env <name>     Wrangler environment to resolve before reporting
@@ -114,6 +116,7 @@ fn main() {
         "config" => cmd_config(&args),
         "account-check" => cmd_account_check(&args),
         "migrations" => cmd_migrations(&args),
+        "secrets-check" => cmd_secrets_check(&args),
         "" => {
             println!("{HELP}");
             0
@@ -267,6 +270,40 @@ fn cmd_migrations(args: &Args) -> i32 {
     }
     if report.ok && report.issues.is_empty() {
         println!("  ✓ prefixes are consistent and sequential");
+    }
+
+    i32::from(!report.ok)
+}
+
+fn cmd_secrets_check(args: &Args) -> i32 {
+    let path = args
+        .positional
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("wrangler.toml"));
+
+    let report = inspect_secrets(&path, None);
+
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
+        );
+        return i32::from(!report.ok);
+    }
+
+    if report.exists {
+        println!("✓ Found {} secret(s) in {}", report.count, report.path.display());
+    } else {
+        println!("! No .dev.vars file found at {}", report.path.display());
+    }
+
+    for issue in &report.issues {
+        let marker = match issue.severity {
+            SecretSeverity::Error => "✗",
+            SecretSeverity::Warning => "!",
+        };
+        println!("  {marker} {}", issue.message);
     }
 
     i32::from(!report.ok)

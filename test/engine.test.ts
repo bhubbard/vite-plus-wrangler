@@ -13,7 +13,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { AccountCheck, DiscoveredConfig, MigrationReport, WranglerConfig } from "../src/types.js";
+import type { AccountCheck, DiscoveredConfig, MigrationReport, SecretsReport, WranglerConfig } from "../src/types.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -193,6 +193,15 @@ describe.skipIf(!binary)("engine integration", () => {
       expect(status).toBe(1);
       expect(data.ok).toBe(false);
       expect(data.issues.some((i) => i.message.includes("Inconsistent prefix widths"))).toBe(true);
+    });
+  });
+
+  describe("secrets-check", () => {
+    it("reports missing .dev.vars as warning", () => {
+      const { data, status } = json<SecretsReport>(["secrets-check", path.join(fixture, "wrangler.toml")]);
+      expect(status).toBe(0);
+      expect(data.ok).toBe(true);
+      expect(data.issues.some((i) => i.message.includes(".dev.vars"))).toBe(true);
     });
   });
 

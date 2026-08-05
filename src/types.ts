@@ -78,6 +78,20 @@ export interface MigrationReport {
   issues: MigrationIssue[];
 }
 
+export interface SecretIssue {
+  severity: "error" | "warning";
+  message: string;
+}
+
+export interface SecretsReport {
+  path: string;
+  exists: boolean;
+  count: number;
+  ok: boolean;
+  keys: string[];
+  issues: SecretIssue[];
+}
+
 export interface WranglerPluginOptions {
   /** Root to scan for wrangler configs. Defaults to the Vite config root. */
   root?: string;

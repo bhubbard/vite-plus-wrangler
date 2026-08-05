@@ -74,6 +74,10 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
       env: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
       dependsOn: [{ task: "build", from: "self" }],
     },
+    "cf:secrets": {
+      command: join("vite-plus-wrangler", "secrets-check", quote(configPath)),
+      cache: false,
+    },
     "cf:types": {
       command: join("wrangler", "types", ...flags),
       cache: true,

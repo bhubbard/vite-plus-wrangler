@@ -9,7 +9,7 @@ describe("wranglerTasks", () => {
   it("emits the core Cloudflare task set", () => {
     const tasks = wranglerTasks({ config: "wrangler.jsonc" });
     expect(Object.keys(tasks)).toEqual(
-      expect.arrayContaining(["cf:dev", "cf:deploy", "cf:preview", "cf:types", "cf:account"]),
+      expect.arrayContaining(["cf:dev", "cf:deploy", "cf:preview", "cf:types", "cf:account", "cf:secrets"]),
     );
   });
 

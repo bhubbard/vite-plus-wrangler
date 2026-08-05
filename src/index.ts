@@ -18,6 +18,8 @@ import {
 } from "./rust.js";
 import { assertIdentifier, quote } from "./shell.js";
 
+import { assertSecrets, checkSecrets } from "./secrets.js";
+
 export * from "./types.js";
 
 export {
@@ -35,6 +37,8 @@ export {
   checkAccount,
   assertMigrations,
   checkMigrations,
+  assertSecrets,
+  checkSecrets,
   discoverConfigs,
   discoverConfigsSafe,
   loadConfig,

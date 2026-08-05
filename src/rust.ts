@@ -8,6 +8,7 @@ import type {
   AccountCheck,
   DiscoveredConfig,
   MigrationReport,
+  SecretsReport,
   WranglerConfig,
 } from "./types.js";
 
@@ -319,6 +320,22 @@ export function checkMigrations(dir = "migrations"): MigrationReport {
     };
   }
   return value as MigrationReport;
+}
+
+/** Check local .dev.vars file for a Worker configuration directory. */
+export function checkSecrets(configPath = "wrangler.toml"): SecretsReport {
+  const { value, error } = run<SecretsReport>(["secrets-check", configPath]);
+  if (error) {
+    return {
+      path: configPath,
+      exists: false,
+      count: 0,
+      ok: false,
+      keys: [],
+      issues: [{ severity: "error", message: `Secret check could not run: ${error.message}` }],
+    };
+  }
+  return value as SecretsReport;
 }
 
 /**

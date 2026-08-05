@@ -79,11 +79,23 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
       command: join("vite-plus-wrangler", "secrets-check", quote(configPath)),
       cache: false,
     },
+    "cf:bindings": {
+      command: join(
+        "vite-plus-wrangler",
+        "bindings-check",
+        quote(configPath),
+        options.srcDir ? `--src ${quote(options.srcDir)}` : "",
+        options.env ? `--env ${assertIdentifier(options.env, "env")}` : "",
+      ),
+      cache: true,
+      inputs: [configPath, `${options.srcDir ?? "src"}/**/*`],
+    },
     "cf:lint": {
       command: join("vite-plus-wrangler", "lint", quote(configPath)),
       cache: true,
       inputs: [configPath],
     },
+
     "cf:bundle": {
       command: join(
         "vite-plus-wrangler",

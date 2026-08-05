@@ -21,6 +21,7 @@ import { assertIdentifier, quote } from "./shell.js";
 import { assertSecrets, checkSecrets } from "./secrets.js";
 import { assertConfigLint, checkConfigLint } from "./lint.js";
 import { assertBundleSize, checkBundleSize } from "./bundle.js";
+import { assertCodeBindings, checkCodeBindings } from "./bindings.js";
 import { generateDevProxyConfig } from "./proxy.js";
 import { kvTasks, r2Tasks } from "./storage.js";
 
@@ -49,6 +50,8 @@ export {
   checkConfigLint,
   assertBundleSize,
   checkBundleSize,
+  assertCodeBindings,
+  checkCodeBindings,
   generateDevProxyConfig,
   discoverConfigs,
   discoverConfigsSafe,
@@ -59,6 +62,7 @@ export {
   quote,
   assertIdentifier,
 };
+
 
 
 export default wrangler;

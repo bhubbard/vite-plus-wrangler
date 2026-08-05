@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use vite_plus_wrangler::account::check_account;
+use vite_plus_wrangler::bindings::{check_codebase_bindings, Severity as BindingSeverity};
 use vite_plus_wrangler::bundle::{check_bundle_size, Severity as BundleSeverity};
 use vite_plus_wrangler::config::{load_config, WranglerConfig};
 use vite_plus_wrangler::discovery::discover;
@@ -21,12 +22,14 @@ Usage:
   wrangler-rs secrets-check [path] [--json]
   wrangler-rs lint <path> [--json]
   wrangler-rs bundle-check <path> [--limit-mb <n>] [--json]
+  wrangler-rs bindings-check [path] [--src <dir>] [--json]
 
 Options:
   --env <name>     Wrangler environment to resolve before reporting
   --expect <id>    Override the expected account id (defaults to config)
   --depth <n>      Max directory depth for discover (1-64, default 6)
   --limit-mb <n>   Bundle size limit in MB (default 3)
+  --src <dir>      Source directory for AST binding scanning (default 'src')
   --json           Emit machine-readable JSON
   -h, --help       Show this message
   -V, --version    Show version
@@ -43,8 +46,10 @@ struct Args {
     expect: Option<String>,
     depth: usize,
     limit_mb: Option<f64>,
+    src: Option<String>,
     json: bool,
 }
+
 
 /// Read the value that follows a flag, erroring when it is missing or is
 /// itself a flag. Silently defaulting here is how `--env` at the end of a
@@ -66,6 +71,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         expect: None,
         depth: DEFAULT_DEPTH,
         limit_mb: None,
+        src: None,
         json: false,
     };
 
@@ -83,6 +89,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             "--json" => args.json = true,
             "--env" => args.env = Some(take_value(raw, &mut i, "--env")?),
             "--expect" => args.expect = Some(take_value(raw, &mut i, "--expect")?),
+            "--src" => args.src = Some(take_value(raw, &mut i, "--src")?),
             "--limit-mb" => {
                 let value = take_value(raw, &mut i, "--limit-mb")?;
                 let limit: f64 = value
@@ -136,6 +143,8 @@ fn main() {
         "secrets-check" => cmd_secrets_check(&args),
         "lint" => cmd_lint(&args),
         "bundle-check" => cmd_bundle_check(&args),
+        "bindings-check" => cmd_bindings_check(&args),
+
         "" => {
             println!("{HELP}");
             0
@@ -406,7 +415,52 @@ fn cmd_bundle_check(args: &Args) -> i32 {
     i32::from(!report.ok)
 }
 
+fn cmd_bindings_check(args: &Args) -> i32 {
+    let config_path = args
+        .positional
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("wrangler.toml"));
+
+    let src_dir = args
+        .src
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("src"));
+
+    let report = check_codebase_bindings(&config_path, &src_dir, args.env.as_deref());
+
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
+        );
+        return i32::from(!report.ok);
+    }
+
+    println!(
+        "Checking AST bindings for {} against {}",
+        src_dir.display(),
+        config_path.display()
+    );
+
+    for issue in &report.issues {
+        let marker = match issue.severity {
+            BindingSeverity::Error => "✗",
+            BindingSeverity::Warning => "!",
+        };
+        println!("  {marker} {}", issue.message);
+    }
+
+    if report.ok && report.issues.is_empty() {
+        println!("  ✓ Codebase bindings match configuration");
+    }
+
+    i32::from(!report.ok)
+}
+
 #[cfg(test)]
+
 mod tests {
     use super::*;
 

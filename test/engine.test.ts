@@ -13,7 +13,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { AccountCheck, BundleSizeReport, DiscoveredConfig, LintReport, MigrationReport, SecretsReport, WranglerConfig } from "../src/types.js";
+import type { AccountCheck, BundleSizeReport, CodeBindingsReport, DiscoveredConfig, LintReport, MigrationReport, SecretsReport, WranglerConfig } from "../src/types.js";
+
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -237,7 +238,21 @@ describe.skipIf(!binary)("engine integration", () => {
     });
   });
 
+  describe("bindings-check", () => {
+    it("detects codebase AST bindings against config", () => {
+      const { data, status } = json<CodeBindingsReport>([
+        "bindings-check",
+        path.join(fixture, "wrangler.toml"),
+        "--src",
+        path.join(fixture, "src"),
+      ]);
+      expect(data.config_path).toContain("wrangler.toml");
+      expect(Array.isArray(data.referenced_bindings)).toBe(true);
+    });
+  });
+
   describe("argument handling", () => {
+
     it("rejects a flag with no value", () => {
       expect(engine(["config", path.join(fixture, "wrangler.toml"), "--env"]).status).toBe(2);
     });

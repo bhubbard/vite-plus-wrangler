@@ -323,3 +323,30 @@ describe("config lint helpers", () => {
   });
 });
 
+describe("codebase AST binding helpers", () => {
+  it("scans TS source for env.BINDING and c.env.BINDING references", async () => {
+    const { scanCodebaseBindingsJs } = await import("./bindings.js");
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vpw-test-ast-"));
+    const src = path.join(tmp, "src");
+    fs.mkdirSync(src, { recursive: true });
+    fs.writeFileSync(
+      path.join(src, "index.ts"),
+      `export default { fetch(req, env) { return env.MY_D1.prepare() && c.env.CUSTOM_KV.get() && env['R2_BUCKET']; } }`,
+    );
+
+    try {
+      const found = scanCodebaseBindingsJs(src);
+      expect(found).toEqual(["CUSTOM_KV", "MY_D1", "R2_BUCKET"]);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("generates cf:bindings task with srcDir option", () => {
+    const tasks = wranglerTasks({ config: "wrangler.toml", srcDir: "app" }) as Cmd;
+    expect(tasks["cf:bindings"]).toBeDefined();
+    expect(tasks["cf:bindings"]!.command).toBe("vite-plus-wrangler bindings-check wrangler.toml --src app");
+  });
+});
+
+

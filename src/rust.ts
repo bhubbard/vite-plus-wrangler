@@ -7,12 +7,14 @@ import { fileURLToPath } from "node:url";
 import type {
   AccountCheck,
   BundleSizeReport,
+  CodeBindingsReport,
   DiscoveredConfig,
   LintReport,
   MigrationReport,
   SecretsReport,
   WranglerConfig,
 } from "./types.js";
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -380,7 +382,34 @@ export function checkBundleSize(
   return value as BundleSizeReport;
 }
 
+/** Check codebase AST bindings against Wrangler configuration. */
+export function checkCodeBindings(
+  configPath = "wrangler.toml",
+  srcDir = "src",
+  options: { env?: string } = {},
+): CodeBindingsReport {
+  const args = ["bindings-check", configPath, "--src", srcDir];
+  if (options.env) {
+    args.push("--env", options.env);
+  }
+  const { value, error } = run<CodeBindingsReport>(args);
+  if (error) {
+    return {
+      config_path: configPath,
+      src_dir: srcDir,
+      ok: false,
+      referenced_bindings: [],
+      configured_bindings: [],
+      missing_bindings: [],
+      unused_bindings: [],
+      issues: [{ severity: "error", binding: "", message: `Bindings check could not run: ${error.message}` }],
+    };
+  }
+  return value as CodeBindingsReport;
+}
+
 /**
+
  * Passthrough for the CLI entrypoint.
  *
  * Returns 1 rather than 0 when the process could not start or was killed by a

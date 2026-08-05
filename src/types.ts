@@ -160,10 +160,13 @@ export interface WranglerPluginOptions {
 }
 
 export type { DevProxyConfig, DevProxyOptions, WorkerProxyRoute } from "./proxy.js";
+export type { CodeBindingIssue, CodeBindingsReport } from "./bindings.js";
 
 export interface TaskOptions {
   /** Wrangler config path, relative to the package. */
   config?: string;
+  /** Source directory for AST binding scanning. Default "src". */
+  srcDir?: string;
   /** Wrangler environment applied to every generated task. */
   env?: string;
   /** Port for `dev`. */
@@ -201,5 +204,6 @@ export interface TaskOptions {
 }
 
 export type { KVTaskOptions, R2TaskOptions } from "./storage.js";
+
 
 

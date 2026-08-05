@@ -19,6 +19,7 @@ import {
 import { assertIdentifier, quote } from "./shell.js";
 
 import { assertSecrets, checkSecrets } from "./secrets.js";
+import { generateDevProxyConfig } from "./proxy.js";
 
 export * from "./types.js";
 
@@ -39,6 +40,7 @@ export {
   checkMigrations,
   assertSecrets,
   checkSecrets,
+  generateDevProxyConfig,
   discoverConfigs,
   discoverConfigsSafe,
   loadConfig,
@@ -48,5 +50,6 @@ export {
   quote,
   assertIdentifier,
 };
+
 
 export default wrangler;

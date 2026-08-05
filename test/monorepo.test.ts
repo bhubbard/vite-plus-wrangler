@@ -92,7 +92,7 @@ describe("N-5: paths are relative to the scan root, not process.cwd()", () => {
   });
 });
 
-describe("discoverWranglerTasks fallback naming", () => {
+describe("discoverWranglerTasks fallback naming and proxy generation", () => {
   it("strips trailing -wrangler from unnamed worker paths", async () => {
     const { discoverWranglerTasks } = await import("../src/tasks.js");
     // Generate tasks for monorepo fixture where workers have explicit or fallback names
@@ -101,7 +101,68 @@ describe("discoverWranglerTasks fallback naming", () => {
     expect(prefixes).not.toContain("workers-api-wrangler");
     expect(prefixes).toEqual(expect.arrayContaining(["api", "webhooks"]));
   });
+
+  it("assigns sequential ports to Workers and emits cf:dev:all task", async () => {
+    const { discoverWranglerTasks } = await import("../src/tasks.js");
+    const tasks = discoverWranglerTasks(monorepo, { basePort: 8787 }) as Record<string, { command: string; dependsOn?: unknown[] }>;
+
+    expect(tasks["api#cf:dev"]?.command).toContain("--port 8787");
+    expect(tasks["webhooks#cf:dev"]?.command).toContain("--port 8788");
+
+    expect(tasks["cf:dev:all"]).toBeDefined();
+    expect(tasks["cf:dev:all"]?.command).toBe("vp run api#cf:dev webhooks#cf:dev");
+    expect(tasks["cf:dev:all"]?.dependsOn).toEqual([
+      { task: "api#cf:dev", from: "self" },
+      { task: "webhooks#cf:dev", from: "self" },
+    ]);
+  });
+
+  it("generateDevProxyConfig produces route map and proxy table", async () => {
+    const { generateDevProxyConfig } = await import("../src/proxy.js");
+    const discovered: DiscoveredConfig[] = [
+      {
+        path: "/repo/workers/api/wrangler.toml",
+        relative_path: "workers/api/wrangler.toml",
+        worker_name: "api",
+        account_id: null,
+        environments: [],
+        d1_bindings: [],
+      },
+      {
+        path: "/repo/workers/webhooks/wrangler.jsonc",
+        relative_path: "workers/webhooks/wrangler.jsonc",
+        worker_name: "webhooks",
+        account_id: null,
+        environments: [],
+        d1_bindings: [],
+      },
+    ];
+
+    const proxy = generateDevProxyConfig(discovered, { basePort: 8787 });
+    expect(proxy.routes).toEqual([
+      {
+        workerName: "api",
+        relativePath: "workers/api/wrangler.toml",
+        port: 8787,
+        target: "http://localhost:8787",
+        routePrefix: "/api",
+      },
+      {
+        workerName: "webhooks",
+        relativePath: "workers/webhooks/wrangler.jsonc",
+        port: 8788,
+        target: "http://localhost:8788",
+        routePrefix: "/webhooks",
+      },
+    ]);
+
+    expect(proxy.proxyTable).toEqual({
+      "/api": "http://localhost:8787",
+      "/webhooks": "http://localhost:8788",
+    });
+  });
 });
+
 
 
 describe.skipIf(!binary)("engine against the monorepo fixture", () => {

@@ -125,6 +125,8 @@ export interface WranglerPluginOptions {
   devEndpoint?: boolean;
 }
 
+export type { DevProxyConfig, DevProxyOptions, WorkerProxyRoute } from "./proxy.js";
+
 export interface TaskOptions {
   /** Wrangler config path, relative to the package. */
   config?: string;
@@ -132,6 +134,10 @@ export interface TaskOptions {
   env?: string;
   /** Port for `dev`. */
   port?: number;
+  /** Starting port for sequential dev port allocation across Workers. Default 8787. */
+  basePort?: number;
+  /** Generate a unified `cf:dev:all` task in multi-Worker setups. Default true for multi-Worker setups. */
+  devProxy?: boolean;
   /** Extra flags appended to `wrangler dev`. */
   devArgs?: string[];
   /** Extra flags appended to `wrangler deploy`. */
@@ -143,3 +149,4 @@ export interface TaskOptions {
   /** Migrations directory. Default "migrations". */
   migrationsDir?: string;
 }
+

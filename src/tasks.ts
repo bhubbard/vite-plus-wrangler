@@ -120,10 +120,12 @@ export function discoverWranglerTasks(
 ): Record<string, unknown> {
   const tasks: Record<string, unknown> = {};
   const claimed = new Map<string, string>();
+  const devTaskNames: string[] = [];
+  const basePort = options.basePort ?? 8787;
 
-  for (const found of discoverConfigs(root, options.depth ?? 6)) {
-    if (found.error) continue;
+  const configs = discoverConfigs(root, options.depth ?? 6).filter((c) => !c.error);
 
+  configs.forEach((found, index) => {
     const rawFallback = found.relative_path.replace(/[/\\]/g, "-").replace(/\.(toml|jsonc?)$/, "");
     const fallback = rawFallback === "wrangler" ? rawFallback : rawFallback.replace(/[-/]wrangler$/, "");
     const name = found.worker_name ?? fallback;
@@ -138,13 +140,32 @@ export function discoverWranglerTasks(
     }
     claimed.set(name, found.relative_path);
 
+    const workerPort = options.port !== undefined ? options.port : basePort + index;
+
     // Relative so generated cache keys stay portable across machines.
-    const generated = wranglerTasks({ ...options, config: found.relative_path });
+    const generated = wranglerTasks({
+      ...options,
+      config: found.relative_path,
+      port: workerPort,
+    });
 
     for (const [task, definition] of Object.entries(generated)) {
       tasks[`${name}#${task}`] = definition;
     }
+
+    devTaskNames.push(`${name}#cf:dev`);
+  });
+
+  const shouldEnableDevProxy = options.devProxy ?? devTaskNames.length > 1;
+  if (shouldEnableDevProxy && devTaskNames.length > 0) {
+    tasks["cf:dev:all"] = {
+      command: `vp run ${devTaskNames.join(" ")}`,
+      cache: false,
+      persistent: true,
+      dependsOn: devTaskNames.map((task) => ({ task, from: "self" })),
+    };
   }
 
   return tasks;
 }
+

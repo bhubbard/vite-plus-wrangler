@@ -1,0 +1,15 @@
+{
+  // Fixture only. Non-default migrations_dir on purpose.
+  "name": "webhooks",
+  "main": "src/index.ts",
+  "account_id": "0123456789abcdef0123456789abcdef",
+  "compatibility_date": "2026-01-01",
+  "d1_databases": [
+    {
+      "binding": "HOOKS",
+      "database_name": "webhooks-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "db/migrations",
+    },
+  ],
+}

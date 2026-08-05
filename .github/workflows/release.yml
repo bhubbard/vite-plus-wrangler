@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cross-compilation linker
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build engine
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Assemble npm package
+        run: node scripts/build-platform-packages.mjs --target ${{ matrix.target }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-${{ matrix.target }}
+          path: npm/
+          retention-days: 1
+
+  publish:
+    name: Publish to npm
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect platform packages
+        run: |
+          mkdir -p npm
+          cp -r artifacts/npm-*/* npm/
+          ls -la npm/
+
+      # Platform packages go first: the main package lists them as
+      # optionalDependencies at an exact version, so publishing it before they
+      # exist leaves a window where installs resolve nothing.
+      - name: Publish platform packages
+        run: |
+          for dir in npm/*/; do
+            echo "Publishing $dir"
+            npm publish "$dir" --access public --provenance
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # `vp pack` only — deliberately NOT `pnpm build`, which also runs
+      # `build:bin` and copies this runner's Linux binary into dist/bin. That
+      # binary would ship to every consumer regardless of platform, and would
+      # make postinstall's "already present" check skip the source build on
+      # platforms with no prebuilt package. See AUDIT-2.md N-1.
+      - name: Build distributable
+        run: pnpm build:dist
+
+      # The platform packages exist on npm as of the step above, so it is now
+      # safe to reference them. See scripts/set-optional-deps.mjs.
+      - name: Add prebuilt-binary optionalDependencies
+        run: pnpm prepare:publish
+
+      - name: Verify no native binary is in the tarball
+        run: |
+          if npm pack --dry-run --json | grep -q '"path": *"dist/bin'; then
+            echo "::error::dist/bin present in tarball — the publish path ran build:bin"
+            exit 1
+          fi
+          echo "OK: no dist/bin in tarball"
+
+      - name: Publish main package
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

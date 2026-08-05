@@ -2,6 +2,14 @@
 //!
 //! Generalizes the one-off `scripts/check-account.mjs` pattern: a deploy must
 //! never silently target whatever account happens to be authenticated.
+//!
+//! # Scope
+//!
+//! This compares two *declared* values — the config's `account_id` and
+//! `CLOUDFLARE_ACCOUNT_ID`. It does not contact Cloudflare, so it cannot tell
+//! you that `CLOUDFLARE_API_TOKEN` is scoped to a different account than the
+//! one both of those agree on. It catches the common mistake (a stale env var
+//! from another project) and not the exotic one (a mis-scoped token).
 
 use serde::Serialize;
 
@@ -100,5 +108,36 @@ mod tests {
         let r = check_account(None, None);
         assert!(!r.ok);
         assert_eq!(r.status, AccountStatus::Unpinned);
+    }
+
+    #[test]
+    fn config_only_is_ok_and_config_wins() {
+        let r = check_account(Some("aaa"), None);
+        assert!(r.ok);
+        assert_eq!(r.status, AccountStatus::Ok);
+        assert_eq!(r.expected.as_deref(), Some("aaa"));
+        assert!(r.actual.is_none());
+    }
+
+    #[test]
+    fn env_only_is_ok_but_flagged_unpinned() {
+        let r = check_account(None, Some("bbb"));
+        assert!(r.ok, "an explicit env var is a deliberate choice");
+        assert_eq!(r.status, AccountStatus::Unpinned);
+    }
+
+    #[test]
+    fn whitespace_and_empty_strings_are_not_values() {
+        // An exported-but-empty CLOUDFLARE_ACCOUNT_ID must not read as "pinned".
+        let r = check_account(Some("  "), Some(""));
+        assert!(!r.ok);
+        assert_eq!(r.status, AccountStatus::Unpinned);
+    }
+
+    #[test]
+    fn surrounding_whitespace_still_matches() {
+        let r = check_account(Some(" aaa "), Some("aaa\n"));
+        assert!(r.ok);
+        assert_eq!(r.status, AccountStatus::Ok);
     }
 }

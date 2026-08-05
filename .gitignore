@@ -2,8 +2,13 @@ node_modules/
 dist/
 target/
 .wrangler/
+.pnpm-store/
 *.tsbuildinfo
 .DS_Store
 
-# Rust
-# Cargo.lock IS committed: this crate ships a binary.
+
+# Generated per-platform npm packages (see scripts/build-platform-packages.mjs)
+npm/
+
+# Cargo.lock IS committed: this crate ships a binary, so builds must be
+# reproducible. Do not add it here.

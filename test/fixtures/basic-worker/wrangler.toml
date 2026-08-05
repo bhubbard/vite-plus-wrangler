@@ -1,6 +1,7 @@
+# Fixture only. Every id here is a placeholder — do not copy into a real project.
 name = "basic-worker"
 main = "src/index.ts"
-account_id = "cafa79bc67a5a702d959109cd442e39f"
+account_id = "0123456789abcdef0123456789abcdef"
 compatibility_date = "2026-01-01"
 
 [[d1_databases]]
@@ -11,3 +12,7 @@ migrations_dir = "migrations"
 
 [env.dev]
 name = "basic-worker-dev"
+
+[env.staging]
+name = "basic-worker-staging"
+account_id = "fedcba9876543210fedcba9876543210"

@@ -1,11 +1,20 @@
 import { defineConfig } from "vite-plus";
 
+/**
+ * Single source of truth for build, lint, and test configuration.
+ *
+ * `package.json` scripts delegate here (`vp pack`, `vp check`) rather than
+ * re-specifying entries and flags — two competing definitions of the same
+ * build only stay in sync until the first time someone edits one of them.
+ */
+const IGNORED = ["dist/**", "target/**", "node_modules/**", "npm/**", "test/fixtures/**"];
+
 export default defineConfig({
   fmt: {
-    ignorePatterns: ["dist/**", "target/**", "node_modules/**"],
+    ignorePatterns: IGNORED,
   },
   lint: {
-    ignorePatterns: ["dist/**", "target/**", "node_modules/**"],
+    ignorePatterns: IGNORED,
   },
   pack: {
     entry: ["src/index.ts", "src/cli.ts"],
@@ -18,11 +27,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts", "test/**/*.test.ts"],
   },
-  check: {
-    oxlint: true,
-    oxfmt: true,
-  },
   staged: {
     "*": "vp check --fix",
   },
 });
+

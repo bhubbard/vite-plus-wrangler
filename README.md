@@ -104,6 +104,16 @@ Or standalone:
 vite-plus-wrangler account-check wrangler.toml --env production
 ```
 
+An environment name that is not declared in the config is an error, not a
+fallback — `--env producton` fails loudly rather than quietly checking the
+default environment.
+
+**What the guard does not do:** it compares two declared values, the config's
+`account_id` and `CLOUDFLARE_ACCOUNT_ID`. It does not contact Cloudflare, so it
+cannot tell you that `CLOUDFLARE_API_TOKEN` is scoped to a different account
+than the one those two agree on. It catches a stale env var from another
+project, not a mis-scoped token.
+
 ---
 
 ## D1 migrations
@@ -111,6 +121,13 @@ vite-plus-wrangler account-check wrangler.toml --env production
 Wrangler orders migrations lexicographically, so `10_x.sql` sorts before
 `9_x.sql`. The checker catches inconsistent prefix widths, duplicate prefixes,
 sequence gaps, and non-conforming filenames.
+
+Both sequential (`0001_`) and timestamp (`20240101120000_`) prefixes are
+supported. Gap warnings apply only to sequential numbering, since timestamps are
+never contiguous.
+
+`migrations_dir` is resolved relative to the wrangler config file, matching
+Wrangler's own behavior.
 
 ```bash
 vite-plus-wrangler migrations migrations
@@ -136,8 +153,18 @@ vite-plus-wrangler account-check wrangler.toml --expect <account-id>
 vite-plus-wrangler migrations ./migrations --json
 ```
 
-All commands accept `--json` for machine consumption. Exit codes are non-zero
-on failure, so they drop straight into CI.
+All commands accept `--json` for machine consumption.
+
+Exit codes: `0` success, `1` a finding (account mismatch, migration error, bad
+config), `2` a usage error. A failure to start the engine also exits non-zero —
+a guard that could not run never reports success.
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | Compared against the config by the account guard |
+| `WRANGLER_RS_BIN` | Absolute path to a `wrangler-rs` binary, overriding resolution |
 
 ---
 
@@ -146,32 +173,59 @@ on failure, so they drop straight into CI.
 | Option | Default | Description |
 | --- | --- | --- |
 | `root` | Vite root | Directory to scan for wrangler configs |
-| `depth` | `6` | Max discovery depth |
+| `depth` | `6` | Max discovery depth (1–64) |
 | `env` | – | Wrangler environment to resolve |
 | `guardAccount` | `true` | Run the account check on `buildStart` |
 | `expectAccount` | config value | Explicit expected account id |
 | `failOnError` | `true` | Fail the build when the guard trips |
 | `checkMigrations` | `true` | Check D1 migration ordering on build |
 | `exposeVars` | `false` | Expose `vars` as `import.meta.env.WRANGLER_*` |
+| `devEndpoint` | `false` | Serve `GET /__wrangler/config` from the dev server |
 
 ---
 
 ## Dev server endpoint
 
-With the plugin active, `GET /__wrangler/config` returns the discovered and
-parsed configuration as JSON — useful for dashboards, IDE extensions, and
-agents that need to reason about bindings without shelling out.
+With `devEndpoint: true`, `GET /__wrangler/config` returns the discovered
+configuration as JSON — useful for dashboards, IDE extensions, and agents that
+need to reason about bindings without shelling out.
+
+It is **off by default** because the response describes every Worker in the
+repo. When enabled, account ids are redacted and requests are refused unless the
+`Host` header is localhost, which blocks DNS-rebinding reads from a page in your
+browser. Even so, do not enable it on a dev server started with `--host`.
+
+---
+
+## Installation internals
+
+The engine is a native binary. It ships as a set of per-platform packages
+(`@vite-plus-wrangler/darwin-arm64`, `linux-x64`, `win32-x64`, …) declared as
+`optionalDependencies`, so your package manager downloads only the one matching
+your machine.
+
+On a platform with no prebuilt binary, `postinstall` builds from source with
+`cargo`. If Rust is not installed, the install still succeeds and the engine
+reports a specific error the first time it is needed. To use a binary you built
+yourself, set `WRANGLER_RS_BIN`.
 
 ---
 
 ## Development
 
 ```bash
-cargo build --release   # build the engine
+pnpm install
+cargo build --release   # required: the integration tests need the engine
 pnpm build              # engine + TS bundle
-pnpm test               # vitest
+pnpm test               # vitest (unit + integration)
 cargo test              # Rust unit tests
+pnpm typecheck          # tsc --noEmit
+pnpm check              # oxlint + oxfmt
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for layout and house rules,
+[SECURITY.md](SECURITY.md) for the threat model, and [AUDIT.md](AUDIT.md) for
+the review this codebase has been through.
 
 ## License
 

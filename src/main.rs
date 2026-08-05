@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use vite_plus_wrangler::account::check_account;
-use vite_plus_wrangler::config::load_config;
+use vite_plus_wrangler::config::{load_config, WranglerConfig};
 use vite_plus_wrangler::discovery::discover;
 use vite_plus_wrangler::migrations::{inspect, Severity};
 
@@ -19,12 +19,16 @@ Usage:
 Options:
   --env <name>     Wrangler environment to resolve before reporting
   --expect <id>    Override the expected account id (defaults to config)
-  --depth <n>      Max directory depth for discover (default 6)
+  --depth <n>      Max directory depth for discover (1-64, default 6)
   --json           Emit machine-readable JSON
   -h, --help       Show this message
   -V, --version    Show version
 ";
 
+const DEFAULT_DEPTH: usize = 6;
+const MAX_DEPTH: usize = 64;
+
+#[derive(Debug)]
 struct Args {
     command: String,
     positional: Vec<String>,
@@ -34,14 +38,25 @@ struct Args {
     json: bool,
 }
 
-fn parse_args() -> Args {
-    let raw: Vec<String> = env::args().skip(1).collect();
+/// Read the value that follows a flag, erroring when it is missing or is
+/// itself a flag. Silently defaulting here is how `--env` at the end of a
+/// command line ends up checking the wrong environment.
+fn take_value(raw: &[String], i: &mut usize, flag: &str) -> Result<String, String> {
+    *i += 1;
+    match raw.get(*i) {
+        Some(v) if !v.starts_with("--") => Ok(v.clone()),
+        Some(v) => Err(format!("{flag} expects a value, found '{v}'")),
+        None => Err(format!("{flag} expects a value")),
+    }
+}
+
+fn parse_args(raw: &[String]) -> Result<Args, String> {
     let mut args = Args {
         command: String::new(),
         positional: Vec::new(),
         env: None,
         expect: None,
-        depth: 6,
+        depth: DEFAULT_DEPTH,
         json: false,
     };
 
@@ -57,17 +72,22 @@ fn parse_args() -> Args {
                 process::exit(0);
             }
             "--json" => args.json = true,
-            "--env" => {
-                i += 1;
-                args.env = raw.get(i).cloned();
-            }
-            "--expect" => {
-                i += 1;
-                args.expect = raw.get(i).cloned();
-            }
+            "--env" => args.env = Some(take_value(raw, &mut i, "--env")?),
+            "--expect" => args.expect = Some(take_value(raw, &mut i, "--expect")?),
             "--depth" => {
-                i += 1;
-                args.depth = raw.get(i).and_then(|v| v.parse().ok()).unwrap_or(6);
+                let value = take_value(raw, &mut i, "--depth")?;
+                let depth: usize = value
+                    .parse()
+                    .map_err(|_| format!("--depth expects a number, found '{value}'"))?;
+                if depth == 0 || depth > MAX_DEPTH {
+                    // max_depth(0) makes WalkDir visit only the root directory,
+                    // so discovery would always come back empty.
+                    return Err(format!("--depth must be between 1 and {MAX_DEPTH}"));
+                }
+                args.depth = depth;
+            }
+            other if other.starts_with('-') && other != "-" => {
+                return Err(format!("unknown option '{other}'"));
             }
             other if args.command.is_empty() => args.command = other.to_string(),
             other => args.positional.push(other.to_string()),
@@ -75,11 +95,19 @@ fn parse_args() -> Args {
         i += 1;
     }
 
-    args
+    Ok(args)
 }
 
 fn main() {
-    let args = parse_args();
+    let raw: Vec<String> = env::args().skip(1).collect();
+
+    let args = match parse_args(&raw) {
+        Ok(args) => args,
+        Err(err) => {
+            eprintln!("{err}\n\n{HELP}");
+            process::exit(2);
+        }
+    };
 
     let code = match args.command.as_str() {
         "discover" => cmd_discover(&args),
@@ -97,6 +125,11 @@ fn main() {
     };
 
     process::exit(code);
+}
+
+/// Load a config and resolve `--env`, reporting either failure the same way.
+fn resolve(path: &str, env: Option<&str>) -> Result<WranglerConfig, String> {
+    load_config(Path::new(path))?.for_env(env)
 }
 
 fn cmd_discover(args: &Args) -> i32 {
@@ -131,6 +164,12 @@ fn cmd_discover(args: &Args) -> i32 {
                 entry.environments.join(", ")
             ),
         }
+        for shadowed in &entry.shadowed {
+            println!(
+                "      ! also present, ignored: {}",
+                shadowed.file_name().unwrap_or_default().to_string_lossy()
+            );
+        }
     }
     println!("\n{} config(s)", found.len());
     0
@@ -142,9 +181,8 @@ fn cmd_config(args: &Args) -> i32 {
         return 2;
     };
 
-    match load_config(Path::new(path)) {
-        Ok(cfg) => {
-            let resolved = cfg.for_env(args.env.as_deref());
+    match resolve(path, args.env.as_deref()) {
+        Ok(resolved) => {
             if args.json {
                 println!(
                     "{}",
@@ -157,9 +195,9 @@ fn cmd_config(args: &Args) -> i32 {
                     "compat:  {}",
                     resolved.compatibility_date.as_deref().unwrap_or("-")
                 );
-                println!("d1:      {}", resolved.d1_databases.len());
-                println!("kv:      {}", resolved.kv_namespaces.len());
-                println!("r2:      {}", resolved.r2_buckets.len());
+                println!("d1:      {}", resolved.d1().len());
+                println!("kv:      {}", resolved.kv().len());
+                println!("r2:      {}", resolved.r2().len());
             }
             0
         }
@@ -176,8 +214,8 @@ fn cmd_account_check(args: &Args) -> i32 {
         return 2;
     };
 
-    let cfg = match load_config(Path::new(path)) {
-        Ok(cfg) => cfg.for_env(args.env.as_deref()),
+    let cfg = match resolve(path, args.env.as_deref()) {
+        Ok(cfg) => cfg,
         Err(err) => {
             eprintln!("{err}");
             return 1;
@@ -232,4 +270,65 @@ fn cmd_migrations(args: &Args) -> i32 {
     }
 
     i32::from(!report.ok)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parses_a_normal_invocation() {
+        let a = parse_args(&args(&[
+            "config",
+            "wrangler.toml",
+            "--env",
+            "dev",
+            "--json",
+        ]))
+        .unwrap();
+        assert_eq!(a.command, "config");
+        assert_eq!(a.positional, vec!["wrangler.toml"]);
+        assert_eq!(a.env.as_deref(), Some("dev"));
+        assert!(a.json);
+    }
+
+    #[test]
+    fn trailing_flag_without_value_is_an_error() {
+        let err = parse_args(&args(&["config", "wrangler.toml", "--env"])).unwrap_err();
+        assert!(err.contains("--env expects a value"));
+    }
+
+    #[test]
+    fn flag_value_that_is_a_flag_is_an_error() {
+        let err = parse_args(&args(&["config", "x", "--env", "--json"])).unwrap_err();
+        assert!(err.contains("--env expects a value"));
+    }
+
+    #[test]
+    fn non_numeric_depth_is_an_error() {
+        let err = parse_args(&args(&["discover", ".", "--depth", "abc"])).unwrap_err();
+        assert!(err.contains("--depth expects a number"));
+    }
+
+    #[test]
+    fn zero_depth_is_rejected() {
+        let err = parse_args(&args(&["discover", ".", "--depth", "0"])).unwrap_err();
+        assert!(err.contains("between 1 and"));
+    }
+
+    #[test]
+    fn unknown_option_is_an_error() {
+        let err = parse_args(&args(&["discover", "--recursive"])).unwrap_err();
+        assert!(err.contains("unknown option '--recursive'"));
+    }
+
+    #[test]
+    fn depth_defaults_when_absent() {
+        let a = parse_args(&args(&["discover"])).unwrap();
+        assert_eq!(a.depth, DEFAULT_DEPTH);
+    }
 }

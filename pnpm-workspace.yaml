@@ -1,2 +1,8 @@
+# Not a multi-package workspace. This file exists so pnpm picks up the
+# `allowBuilds` setting below; the generated `npm/*` platform packages are
+# published directly by CI and are deliberately not workspace members.
+packages: []
+
 allowBuilds:
   esbuild: true
+  workerd: set this to true or false

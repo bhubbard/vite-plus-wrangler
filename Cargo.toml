@@ -2,8 +2,15 @@
 name = "vite-plus-wrangler"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.75"
 description = "High performance Wrangler config discovery, account guard, and D1 migration engine for Vite+"
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/bhubbard/vite-plus-wrangler"
+homepage = "https://github.com/bhubbard/vite-plus-wrangler"
+keywords = ["cloudflare", "wrangler", "workers", "d1", "vite"]
+categories = ["development-tools", "config"]
+exclude = ["dist/", "npm/", "node_modules/", "test/"]
 
 [lib]
 name = "vite_plus_wrangler"

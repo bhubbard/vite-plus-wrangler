@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --all
+
+  node:
+    name: Node (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The engine must exist before the integration tests run, otherwise they
+      # skip themselves and CI goes green without having tested anything.
+      - name: Build engine
+        run: cargo build --release
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint and format
+        run: pnpm check
+
+      # One run, captured once. Running the suite twice (once for results, once
+      # to grep) doubled this job on all three OSes and let the second run use
+      # different env than the first.
+      - name: Test
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm test 2>&1 | tee test-output.log
+        env:
+          WRANGLER_RS_BIN: ${{ runner.os == 'Windows' && format('{0}\target\release\wrangler-rs.exe', github.workspace) || format('{0}/target/release/wrangler-rs', github.workspace) }}
+
+      - name: Verify integration tests were not skipped
+        shell: bash
+        run: |
+          if grep -q "Integration tests skipped" test-output.log; then
+            echo "::error::Integration tests skipped — the engine was not found."
+            exit 1
+          fi
+          echo "OK: integration tests ran"

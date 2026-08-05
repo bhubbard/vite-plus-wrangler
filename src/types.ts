@@ -35,6 +35,11 @@ export interface DiscoveredConfig {
   account_id: string | null;
   environments: string[];
   d1_bindings: string[];
+  /**
+   * Sibling config files in the same directory that this one takes precedence
+   * over. Present only when the directory holds more than one wrangler config.
+   */
+  shadowed?: string[];
   error?: string;
 }
 
@@ -57,6 +62,10 @@ export interface Migration {
   file: string;
   path: string;
   prefix: string;
+  /**
+   * Numeric value of the filename prefix. Timestamp-style prefixes such as
+   * `20240101120000` are supported and stay well inside `Number.MAX_SAFE_INTEGER`.
+   */
   index: number;
   name: string;
 }
@@ -92,6 +101,14 @@ export interface WranglerPluginOptions {
    * `import.meta.env.WRANGLER_*`. Default false — bindings are server-side.
    */
   exposeVars?: boolean;
+  /**
+   * Serve `GET /__wrangler/config` from the dev server. Default false.
+   *
+   * The response describes every discovered Worker. Account ids are redacted
+   * and non-localhost requests are refused, but absolute paths and worker
+   * names are still disclosed, so this stays opt-in.
+   */
+  devEndpoint?: boolean;
 }
 
 export interface TaskOptions {

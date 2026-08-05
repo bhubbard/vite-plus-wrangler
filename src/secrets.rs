@@ -59,7 +59,6 @@ pub fn parse_dev_vars(contents: &str) -> BTreeMap<String, String> {
             val = &val[1..val.len() - 1];
         }
 
-
         vars.insert(key, val.to_string());
     }
     vars

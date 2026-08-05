@@ -2,8 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { d1Tasks } from "./d1.js";
-import { discoverConfigs } from "./rust.js";
+import { discoverConfigs, loadConfigSafe } from "./rust.js";
 import { assertIdentifier, assertPort, join, quote, wranglerFlags } from "./shell.js";
+import { kvTasks, r2Tasks } from "./storage.js";
 import type { TaskOptions } from "./types.js";
 
 /** Config filenames in the same precedence order the Rust engine uses. */
@@ -78,6 +79,20 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
       command: join("vite-plus-wrangler", "secrets-check", quote(configPath)),
       cache: false,
     },
+    "cf:lint": {
+      command: join("vite-plus-wrangler", "lint", quote(configPath)),
+      cache: true,
+      inputs: [configPath],
+    },
+    "cf:bundle": {
+      command: join(
+        "vite-plus-wrangler",
+        "bundle-check",
+        quote(options.bundlePath ?? "dist"),
+        options.bundleLimitMb !== undefined ? `--limit-mb ${options.bundleLimitMb}` : "",
+      ),
+      cache: false,
+    },
     "cf:types": {
       command: join("wrangler", "types", ...flags),
       cache: true,
@@ -85,6 +100,19 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
       // CI runner. An absolute path here defeats caching across machines.
       inputs: [configPath],
       outputs: ["worker-configuration.d.ts"],
+    },
+    "cf:tail": {
+      command: join(
+        "wrangler",
+        "tail",
+        ...flags,
+        options.tailFormat
+          ? `--format ${assertIdentifier(options.tailFormat, "tail format")}`
+          : "",
+        ...extra(options.tailArgs),
+      ),
+      cache: false,
+      persistent: true,
     },
   };
 
@@ -96,6 +124,52 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
         config: options.config,
         env: options.env,
         migrationsDir: options.migrationsDir,
+      }),
+    );
+  }
+
+  const loadedConfig = loadConfigSafe(configPath, options.env);
+
+  const kvBinding =
+    typeof options.kv === "string"
+      ? options.kv
+      : (loadedConfig?.kv_namespaces?.[0]?.binding ?? undefined);
+
+  const hasKv =
+    options.kv !== undefined ||
+    options.kvSeed !== undefined ||
+    (loadedConfig?.kv_namespaces && loadedConfig.kv_namespaces.length > 0);
+
+  if (hasKv) {
+    Object.assign(
+      tasks,
+      kvTasks({
+        binding: kvBinding,
+        seed: options.kvSeed,
+        config: options.config,
+        env: options.env,
+      }),
+    );
+  }
+
+  const r2Bucket =
+    typeof options.r2 === "string"
+      ? options.r2
+      : (loadedConfig?.r2_buckets?.[0]?.binding ?? loadedConfig?.r2_buckets?.[0]?.bucket_name ?? undefined);
+
+  const hasR2 =
+    options.r2 !== undefined ||
+    options.r2Sync !== undefined ||
+    (loadedConfig?.r2_buckets && loadedConfig.r2_buckets.length > 0);
+
+  if (hasR2) {
+    Object.assign(
+      tasks,
+      r2Tasks({
+        bucket: r2Bucket,
+        syncDir: options.r2Sync,
+        config: options.config,
+        env: options.env,
       }),
     );
   }

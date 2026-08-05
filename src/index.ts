@@ -19,7 +19,10 @@ import {
 import { assertIdentifier, quote } from "./shell.js";
 
 import { assertSecrets, checkSecrets } from "./secrets.js";
+import { assertConfigLint, checkConfigLint } from "./lint.js";
+import { assertBundleSize, checkBundleSize } from "./bundle.js";
 import { generateDevProxyConfig } from "./proxy.js";
+import { kvTasks, r2Tasks } from "./storage.js";
 
 export * from "./types.js";
 
@@ -30,6 +33,8 @@ export {
   discoverWranglerTasks,
   resolveConfigPath,
   d1Tasks,
+  kvTasks,
+  r2Tasks,
   migrationsDirFor,
   resolveMigrationsDir,
   assertAccount,
@@ -40,6 +45,10 @@ export {
   checkMigrations,
   assertSecrets,
   checkSecrets,
+  assertConfigLint,
+  checkConfigLint,
+  assertBundleSize,
+  checkBundleSize,
   generateDevProxyConfig,
   discoverConfigs,
   discoverConfigsSafe,

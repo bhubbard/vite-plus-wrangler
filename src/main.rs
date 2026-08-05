@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use vite_plus_wrangler::account::check_account;
+use vite_plus_wrangler::bundle::{check_bundle_size, Severity as BundleSeverity};
 use vite_plus_wrangler::config::{load_config, WranglerConfig};
 use vite_plus_wrangler::discovery::discover;
+use vite_plus_wrangler::lint::{lint_config, Severity as LintSeverity};
 use vite_plus_wrangler::migrations::{inspect, Severity};
 use vite_plus_wrangler::secrets::{inspect_secrets, Severity as SecretSeverity};
 
@@ -17,11 +19,14 @@ Usage:
   wrangler-rs account-check <path> [--env <name>] [--expect <id>] [--json]
   wrangler-rs migrations <dir> [--json]
   wrangler-rs secrets-check [path] [--json]
+  wrangler-rs lint <path> [--json]
+  wrangler-rs bundle-check <path> [--limit-mb <n>] [--json]
 
 Options:
   --env <name>     Wrangler environment to resolve before reporting
   --expect <id>    Override the expected account id (defaults to config)
   --depth <n>      Max directory depth for discover (1-64, default 6)
+  --limit-mb <n>   Bundle size limit in MB (default 3)
   --json           Emit machine-readable JSON
   -h, --help       Show this message
   -V, --version    Show version
@@ -37,6 +42,7 @@ struct Args {
     env: Option<String>,
     expect: Option<String>,
     depth: usize,
+    limit_mb: Option<f64>,
     json: bool,
 }
 
@@ -59,6 +65,7 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
         env: None,
         expect: None,
         depth: DEFAULT_DEPTH,
+        limit_mb: None,
         json: false,
     };
 
@@ -76,6 +83,16 @@ fn parse_args(raw: &[String]) -> Result<Args, String> {
             "--json" => args.json = true,
             "--env" => args.env = Some(take_value(raw, &mut i, "--env")?),
             "--expect" => args.expect = Some(take_value(raw, &mut i, "--expect")?),
+            "--limit-mb" => {
+                let value = take_value(raw, &mut i, "--limit-mb")?;
+                let limit: f64 = value
+                    .parse()
+                    .map_err(|_| format!("--limit-mb expects a number, found '{value}'"))?;
+                if limit <= 0.0 {
+                    return Err("--limit-mb must be greater than 0".to_string());
+                }
+                args.limit_mb = Some(limit);
+            }
             "--depth" => {
                 let value = take_value(raw, &mut i, "--depth")?;
                 let depth: usize = value
@@ -117,6 +134,8 @@ fn main() {
         "account-check" => cmd_account_check(&args),
         "migrations" => cmd_migrations(&args),
         "secrets-check" => cmd_secrets_check(&args),
+        "lint" => cmd_lint(&args),
+        "bundle-check" => cmd_bundle_check(&args),
         "" => {
             println!("{HELP}");
             0
@@ -309,6 +328,84 @@ fn cmd_secrets_check(args: &Args) -> i32 {
     i32::from(!report.ok)
 }
 
+fn cmd_lint(args: &Args) -> i32 {
+    let path = args
+        .positional
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("wrangler.toml"));
+
+    let report = lint_config(&path);
+
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
+        );
+        return i32::from(!report.ok);
+    }
+
+    println!("Linting {}", report.path.display());
+    for issue in &report.issues {
+        let marker = match issue.severity {
+            LintSeverity::Error => "✗",
+            LintSeverity::Warning => "!",
+        };
+        println!("  {marker} {}", issue.message);
+    }
+    if report.ok && report.issues.is_empty() {
+        println!("  ✓ No issues found");
+    }
+
+    i32::from(!report.ok)
+}
+
+fn cmd_bundle_check(args: &Args) -> i32 {
+    let path = args
+        .positional
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("dist"));
+
+    let report = check_bundle_size(&path, args.limit_mb);
+
+    if args.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".into())
+        );
+        return i32::from(!report.ok);
+    }
+
+    if report.exists {
+        println!(
+            "Bundle size: {:.2} MB / {:.2} MB ({})",
+            report.total_mb,
+            report.limit_mb,
+            report.path.display()
+        );
+        for file in &report.files {
+            println!("  • {} ({:.2} MB)", file.path.display(), file.size_mb);
+        }
+    } else {
+        println!("✗ Bundle path not found: {}", report.path.display());
+    }
+
+    for issue in &report.issues {
+        let marker = match issue.severity {
+            BundleSeverity::Error => "✗",
+            BundleSeverity::Warning => "!",
+        };
+        println!("  {marker} {}", issue.message);
+    }
+
+    if report.ok && report.issues.is_empty() {
+        println!("  ✓ Bundle size is within limit");
+    }
+
+    i32::from(!report.ok)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,5 +464,13 @@ mod tests {
     fn depth_defaults_when_absent() {
         let a = parse_args(&args(&["discover"])).unwrap();
         assert_eq!(a.depth, DEFAULT_DEPTH);
+    }
+
+    #[test]
+    fn parses_limit_mb_flag() {
+        let a = parse_args(&args(&["bundle-check", "dist", "--limit-mb", "10"])).unwrap();
+        assert_eq!(a.command, "bundle-check");
+        assert_eq!(a.positional, vec!["dist"]);
+        assert_eq!(a.limit_mb, Some(10.0));
     }
 }

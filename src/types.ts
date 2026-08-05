@@ -92,6 +92,40 @@ export interface SecretsReport {
   issues: SecretIssue[];
 }
 
+export interface LintIssue {
+  severity: "error" | "warning";
+  message: string;
+}
+
+export interface LintReport {
+  path: string;
+  ok: boolean;
+  issues: LintIssue[];
+}
+
+export interface BundleSizeIssue {
+  severity: "error" | "warning";
+  message: string;
+}
+
+export interface BundleFileDetails {
+  path: string;
+  size_bytes: number;
+  size_mb: number;
+}
+
+export interface BundleSizeReport {
+  path: string;
+  exists: boolean;
+  total_bytes: number;
+  total_mb: number;
+  limit_mb: number;
+  limit_bytes: number;
+  ok: boolean;
+  files: BundleFileDetails[];
+  issues: BundleSizeIssue[];
+}
+
 export interface WranglerPluginOptions {
   /** Root to scan for wrangler configs. Defaults to the Vite config root. */
   root?: string;
@@ -148,5 +182,24 @@ export interface TaskOptions {
   d1?: string;
   /** Migrations directory. Default "migrations". */
   migrationsDir?: string;
+  /** Limit in MB for bundle size guard. Default 3. */
+  bundleLimitMb?: number;
+  /** Output dist directory or bundle path to check. Default "dist". */
+  bundlePath?: string;
+  /** Log format for `cf:tail` ("json" | "pretty"). */
+  tailFormat?: "json" | "pretty";
+  /** Extra flags appended to `wrangler tail`. */
+  tailArgs?: string[];
+  /** KV namespace binding name or flag enabling `cf:kv:seed`. */
+  kv?: string | boolean;
+  /** Seed file/json or command/args for `cf:kv:seed`. */
+  kvSeed?: string;
+  /** R2 bucket binding name or flag enabling `cf:r2:sync`. */
+  r2?: string | boolean;
+  /** Source directory or args for `cf:r2:sync`. */
+  r2Sync?: string;
 }
+
+export type { KVTaskOptions, R2TaskOptions } from "./storage.js";
+
 

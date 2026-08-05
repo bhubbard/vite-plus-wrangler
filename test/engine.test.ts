@@ -13,7 +13,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { AccountCheck, DiscoveredConfig, MigrationReport, SecretsReport, WranglerConfig } from "../src/types.js";
+import type { AccountCheck, BundleSizeReport, DiscoveredConfig, LintReport, MigrationReport, SecretsReport, WranglerConfig } from "../src/types.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -202,6 +202,38 @@ describe.skipIf(!binary)("engine integration", () => {
       expect(status).toBe(0);
       expect(data.ok).toBe(true);
       expect(data.issues.some((i) => i.message.includes(".dev.vars"))).toBe(true);
+    });
+  });
+
+  describe("bundle-check", () => {
+    it("reports non-existent path as error", () => {
+      const { data, status } = json<BundleSizeReport>(["bundle-check", "non_existent_dist"]);
+      expect(status).toBe(1);
+      expect(data.ok).toBe(false);
+      expect(data.exists).toBe(false);
+      expect(data.issues.some((i) => i.message.includes("does not exist"))).toBe(true);
+    });
+
+    it("respects custom limit-mb flag", () => {
+      const { data, status } = json<BundleSizeReport>(["bundle-check", "non_existent_dist", "--limit-mb", "10"]);
+      expect(status).toBe(1);
+      expect(data.limit_mb).toBe(10);
+      expect(data.limit_bytes).toBe(10485760);
+    });
+  });
+
+  describe("lint", () => {
+    it("lints a valid config file", () => {
+      const { data, status } = json<LintReport>(["lint", path.join(fixture, "wrangler.toml")]);
+      expect(status).toBe(0);
+      expect(data.ok).toBe(true);
+    });
+
+    it("reports errors on non-existent config path", () => {
+      const { data, status } = json<LintReport>(["lint", "non_existent.toml"]);
+      expect(status).toBe(1);
+      expect(data.ok).toBe(false);
+      expect(data.issues.some((i) => i.message.includes("not found"))).toBe(true);
     });
   });
 

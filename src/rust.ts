@@ -6,7 +6,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import type {
   AccountCheck,
+  BundleSizeReport,
   DiscoveredConfig,
+  LintReport,
   MigrationReport,
   SecretsReport,
   WranglerConfig,
@@ -336,6 +338,46 @@ export function checkSecrets(configPath = "wrangler.toml"): SecretsReport {
     };
   }
   return value as SecretsReport;
+}
+
+/** Lint a Wrangler configuration file for common schema & deprecation issues. */
+export function checkConfigLint(configPath = "wrangler.toml"): LintReport {
+  const { value, error } = run<LintReport>(["lint", configPath]);
+  if (error) {
+    return {
+      path: configPath,
+      ok: false,
+      issues: [{ severity: "error", message: `Lint check could not run: ${error.message}` }],
+    };
+  }
+  return value as LintReport;
+}
+
+/** Check output bundle size against Cloudflare limits. */
+export function checkBundleSize(
+  path = "dist",
+  options: { limitMb?: number } = {},
+): BundleSizeReport {
+  const args = ["bundle-check", path];
+  if (options.limitMb !== undefined) {
+    args.push("--limit-mb", String(options.limitMb));
+  }
+  const { value, error } = run<BundleSizeReport>(args);
+  if (error) {
+    const limitMb = options.limitMb ?? 3;
+    return {
+      path,
+      exists: false,
+      total_bytes: 0,
+      total_mb: 0,
+      limit_mb: limitMb,
+      limit_bytes: limitMb * 1024 * 1024,
+      ok: false,
+      files: [],
+      issues: [{ severity: "error", message: `Bundle size check could not run: ${error.message}` }],
+    };
+  }
+  return value as BundleSizeReport;
 }
 
 /**

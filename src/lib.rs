@@ -4,8 +4,10 @@
 //! lives here so the Node layer stays a thin, cheap wrapper around one binary.
 
 pub mod account;
+pub mod bundle;
 pub mod config;
 pub mod discovery;
+pub mod lint;
 pub mod migrations;
 pub mod secrets;
 

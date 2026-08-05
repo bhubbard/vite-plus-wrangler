@@ -108,7 +108,10 @@ pub fn scan_codebase_bindings(src_dir: &Path) -> BTreeSet<String> {
                     let path = entry.path();
                     let name = entry.file_name();
                     let name_str = name.to_string_lossy();
-                    if !name_str.starts_with('.') && name_str != "node_modules" && name_str != "dist" {
+                    if !name_str.starts_with('.')
+                        && name_str != "node_modules"
+                        && name_str != "dist"
+                    {
                         stack.push(path);
                     }
                 }
@@ -248,7 +251,6 @@ mod tests {
         let src = dir.path().join("src");
         fs::create_dir_all(&src).unwrap();
 
-
         fs::write(
             src.join("index.ts"),
             r#"
@@ -329,7 +331,10 @@ mod tests {
         fs::write(sub.join("utils.mjs"), "const r2 = env['ASSETS_R2'];").unwrap();
 
         let found = scan_codebase_bindings(&src);
-        assert_eq!(found.into_iter().collect::<Vec<_>>(), vec!["ASSETS_R2", "HELPER_KV", "USERS_DB"]);
+        assert_eq!(
+            found.into_iter().collect::<Vec<_>>(),
+            vec!["ASSETS_R2", "HELPER_KV", "USERS_DB"]
+        );
     }
 
     #[test]
@@ -366,11 +371,14 @@ mod tests {
         let dir = TempDir::new("no-src");
         let config_file = dir.path().join("wrangler.toml");
         let src = dir.path().join("does_not_exist");
-        fs::write(&config_file, "name = 'test'\ncompatibility_date = '2024-01-01'").unwrap();
+        fs::write(
+            &config_file,
+            "name = 'test'\ncompatibility_date = '2024-01-01'",
+        )
+        .unwrap();
 
         let report = check_codebase_bindings(&config_file, &src, None);
         assert!(report.ok);
         assert!(report.referenced_bindings.is_empty());
     }
 }
-

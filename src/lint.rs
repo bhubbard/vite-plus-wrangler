@@ -84,7 +84,10 @@ pub fn lint_config(path: &Path) -> LintReport {
 }
 
 fn is_valid_worker_name(name: &str) -> bool {
-    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 fn lint_parsed(config: &WranglerConfig, raw: &str, path: &Path, issues: &mut Vec<LintIssue>) {
@@ -208,7 +211,8 @@ fn inspect_value_for_deprecated(val: &toml::Value, issues: &mut Vec<LintIssue>) 
     if table.contains_key("type") {
         issues.push(LintIssue {
             severity: Severity::Warning,
-            message: "Deprecated field 'type' is used (Wrangler v2+ no longer uses the type field)".to_string(),
+            message: "Deprecated field 'type' is used (Wrangler v2+ no longer uses the type field)"
+                .to_string(),
         });
     }
     if table.contains_key("zone_id") {
@@ -258,7 +262,8 @@ fn inspect_json_for_deprecated(val: &serde_json::Value, issues: &mut Vec<LintIss
     if obj.contains_key("type") {
         issues.push(LintIssue {
             severity: Severity::Warning,
-            message: "Deprecated field 'type' is used (Wrangler v2+ no longer uses the type field)".to_string(),
+            message: "Deprecated field 'type' is used (Wrangler v2+ no longer uses the type field)"
+                .to_string(),
         });
     }
     if obj.contains_key("zone_id") {
@@ -351,7 +356,10 @@ mod tests {
         let report = lint_config(&d.path().join("wrangler.toml"));
         assert!(report.ok); // warnings do not make ok=false
         assert_eq!(report.issues.len(), 2);
-        assert!(report.issues.iter().any(|i| i.message.contains("compatibility_date")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.message.contains("compatibility_date")));
         assert!(report.issues.iter().any(|i| i.message.contains("main")));
     }
 
@@ -369,7 +377,10 @@ mod tests {
 
         let report = lint_config(&d.path().join("wrangler.toml"));
         assert!(!report.ok);
-        assert!(report.issues.iter().any(|i| i.message.contains("missing or empty")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.message.contains("missing or empty")));
 
         let d2 = TempDir::new("lint_name_invalid");
         d2.write(
@@ -383,7 +394,10 @@ mod tests {
 
         let report2 = lint_config(&d2.path().join("wrangler.toml"));
         assert!(!report2.ok);
-        assert!(report2.issues.iter().any(|i| i.message.contains("Invalid worker name")));
+        assert!(report2
+            .issues
+            .iter()
+            .any(|i| i.message.contains("Invalid worker name")));
     }
 
     #[test]
@@ -414,9 +428,18 @@ mod tests {
         let report = lint_config(&d.path().join("wrangler.toml"));
         assert!(!report.ok);
         assert_eq!(report.issues.len(), 3);
-        assert!(report.issues.iter().any(|i| i.message.contains("d1_databases")));
-        assert!(report.issues.iter().any(|i| i.message.contains("kv_namespaces")));
-        assert!(report.issues.iter().any(|i| i.message.contains("r2_buckets")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.message.contains("d1_databases")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.message.contains("kv_namespaces")));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.message.contains("r2_buckets")));
     }
 
     #[test]

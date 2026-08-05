@@ -309,4 +309,3 @@ mod tests {
         assert_eq!(gap.severity, Severity::Warning);
     }
 }
-

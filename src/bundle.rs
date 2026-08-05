@@ -226,7 +226,10 @@ mod tests {
         assert!(report.exists);
         assert!(report.ok);
         assert_eq!(report.files.len(), 1);
-        assert!(report.files[0].path.to_string_lossy().contains("worker.mjs"));
+        assert!(report.files[0]
+            .path
+            .to_string_lossy()
+            .contains("worker.mjs"));
     }
 
     #[test]

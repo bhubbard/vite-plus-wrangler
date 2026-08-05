@@ -50,7 +50,6 @@ struct Args {
     json: bool,
 }
 
-
 /// Read the value that follows a flag, erroring when it is missing or is
 /// itself a flag. Silently defaulting here is how `--env` at the end of a
 /// command line ends up checking the wrong environment.
@@ -321,7 +320,11 @@ fn cmd_secrets_check(args: &Args) -> i32 {
     }
 
     if report.exists {
-        println!("✓ Found {} secret(s) in {}", report.count, report.path.display());
+        println!(
+            "✓ Found {} secret(s) in {}",
+            report.count,
+            report.path.display()
+        );
     } else {
         println!("! No .dev.vars file found at {}", report.path.display());
     }
@@ -460,8 +463,8 @@ fn cmd_bindings_check(args: &Args) -> i32 {
 }
 
 #[cfg(test)]
-
 mod tests {
+
     use super::*;
 
     fn args(list: &[&str]) -> Vec<String> {

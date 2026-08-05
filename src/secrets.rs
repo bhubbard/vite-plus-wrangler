@@ -52,13 +52,13 @@ pub fn parse_dev_vars(contents: &str) -> BTreeMap<String, String> {
         }
 
         let mut val = val.trim();
-        if (val.starts_with('"') && val.ends_with('"'))
-            || (val.starts_with('\'') && val.ends_with('\''))
+        if ((val.starts_with('"') && val.ends_with('"'))
+            || (val.starts_with('\'') && val.ends_with('\'')))
+            && val.len() >= 2
         {
-            if val.len() >= 2 {
-                val = &val[1..val.len() - 1];
-            }
+            val = &val[1..val.len() - 1];
         }
+
 
         vars.insert(key, val.to_string());
     }
@@ -143,16 +143,28 @@ mod tests {
         "#;
 
         let parsed = parse_dev_vars(src);
-        assert_eq!(parsed.get("SECRET_KEY").map(String::as_str), Some("supersecret"));
-        assert_eq!(parsed.get("QUOTED").map(String::as_str), Some("hello world"));
-        assert_eq!(parsed.get("SINGLE").map(String::as_str), Some("quoted value"));
+        assert_eq!(
+            parsed.get("SECRET_KEY").map(String::as_str),
+            Some("supersecret")
+        );
+        assert_eq!(
+            parsed.get("QUOTED").map(String::as_str),
+            Some("hello world")
+        );
+        assert_eq!(
+            parsed.get("SINGLE").map(String::as_str),
+            Some("quoted value")
+        );
         assert_eq!(parsed.get("EMPTY").map(String::as_str), Some(""));
         assert!(!parsed.contains_key("# Environment variables for dev"));
     }
 
     #[test]
     fn missing_file_is_warning() {
-        let report = inspect_secrets(Path::new("wrangler.toml"), Some(Path::new("nonexistent.dev.vars")));
+        let report = inspect_secrets(
+            Path::new("wrangler.toml"),
+            Some(Path::new("nonexistent.dev.vars")),
+        );
         assert!(report.ok);
         assert!(!report.exists);
         assert_eq!(report.issues.len(), 1);

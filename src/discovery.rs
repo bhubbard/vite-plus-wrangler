@@ -215,7 +215,10 @@ mod tests {
         let found = discover(Path::new("/definitely/nonexistent/path"), 6);
         assert_eq!(found.len(), 1);
         assert!(found[0].error.is_some());
-        assert!(found[0].error.as_ref().unwrap().contains("No such file or directory"));
+        assert!(found[0]
+            .error
+            .as_ref()
+            .unwrap()
+            .contains("No such file or directory"));
     }
 }
-

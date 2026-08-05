@@ -316,4 +316,61 @@ mod tests {
         assert_eq!(report.unused_bindings, vec!["OLD_CACHE"]);
         assert_eq!(report.referenced_bindings, vec!["DB", "NEW_KV"]);
     }
+
+    #[test]
+    fn scans_nested_directories_and_multiple_extensions() {
+        let dir = TempDir::new("scans-nested-ts");
+        let src = dir.path().join("src");
+        let sub = src.join("routes").join("api");
+        fs::create_dir_all(&sub).unwrap();
+
+        fs::write(src.join("helper.jsx"), "const x = env.HELPER_KV;").unwrap();
+        fs::write(sub.join("user.tsx"), "const db = c.env.USERS_DB;").unwrap();
+        fs::write(sub.join("utils.mjs"), "const r2 = env['ASSETS_R2'];").unwrap();
+
+        let found = scan_codebase_bindings(&src);
+        assert_eq!(found.into_iter().collect::<Vec<_>>(), vec!["ASSETS_R2", "HELPER_KV", "USERS_DB"]);
+    }
+
+    #[test]
+    fn handles_environment_specific_bindings() {
+        let dir = TempDir::new("env-bindings");
+        let config_file = dir.path().join("wrangler.toml");
+        let src = dir.path().join("src");
+        fs::create_dir_all(&src).unwrap();
+
+        fs::write(
+            &config_file,
+            r#"
+            name = "my-worker"
+            compatibility_date = "2024-01-01"
+
+            [env.staging]
+            [[d1_databases]]
+            binding = "STAGING_DB"
+            database_name = "stage"
+            database_id = "789"
+            "#,
+        )
+        .unwrap();
+
+        fs::write(src.join("index.ts"), "const db = env.STAGING_DB;").unwrap();
+
+        let report = check_codebase_bindings(&config_file, &src, Some("staging"));
+        assert!(report.ok);
+        assert_eq!(report.missing_bindings, Vec::<String>::new());
+    }
+
+    #[test]
+    fn handles_nonexistent_src_dir_gracefully() {
+        let dir = TempDir::new("no-src");
+        let config_file = dir.path().join("wrangler.toml");
+        let src = dir.path().join("does_not_exist");
+        fs::write(&config_file, "name = 'test'\ncompatibility_date = '2024-01-01'").unwrap();
+
+        let report = check_codebase_bindings(&config_file, &src, None);
+        assert!(report.ok);
+        assert!(report.referenced_bindings.is_empty());
+    }
 }
+

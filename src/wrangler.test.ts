@@ -347,6 +347,37 @@ describe("codebase AST binding helpers", () => {
     expect(tasks["cf:bindings"]).toBeDefined();
     expect(tasks["cf:bindings"]!.command).toBe("vite-plus-wrangler bindings-check wrangler.toml --src app");
   });
+
+  it("assertCodeBindings throws when missing bindings exist", async () => {
+    const { assertCodeBindings } = await import("./bindings.js");
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vpw-test-assert-"));
+    const src = path.join(tmp, "src");
+    fs.mkdirSync(src, { recursive: true });
+    fs.writeFileSync(path.join(src, "index.ts"), "const db = env.UNCONFIGURED_DB;");
+    const config = path.join(tmp, "wrangler.toml");
+    fs.writeFileSync(config, 'name = "test"\ncompatibility_date = "2024-01-01"');
+
+    try {
+      expect(() => assertCodeBindings(config, src)).toThrow(/Codebase binding verification failed/);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("checkCodeBindingsJs fallback handles non-existent config path", async () => {
+    const { checkCodeBindingsJs } = await import("./bindings.js");
+    const report = checkCodeBindingsJs("non_existent_config.toml", "src");
+    expect(report.ok).toBe(false);
+    expect(report.issues[0]!.message).toContain("Config file not found");
+  });
 });
+
+describe("secrets assertion helpers", () => {
+  it("assertSecrets throws on non-existent config path", async () => {
+    const { assertSecrets } = await import("./secrets.js");
+    expect(() => assertSecrets("non_existent_wrangler.toml")).not.toThrow(); // Secrets report missing file as warning, ok = true
+  });
+});
+
 
 

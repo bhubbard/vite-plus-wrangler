@@ -118,9 +118,7 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
         "wrangler",
         "tail",
         ...flags,
-        options.tailFormat
-          ? `--format ${assertIdentifier(options.tailFormat, "tail format")}`
-          : "",
+        options.tailFormat ? `--format ${assertIdentifier(options.tailFormat, "tail format")}` : "",
         ...extra(options.tailArgs),
       ),
       cache: false,
@@ -167,7 +165,9 @@ export function wranglerTasks(options: TaskOptions = {}): Record<string, unknown
   const r2Bucket =
     typeof options.r2 === "string"
       ? options.r2
-      : (loadedConfig?.r2_buckets?.[0]?.binding ?? loadedConfig?.r2_buckets?.[0]?.bucket_name ?? undefined);
+      : (loadedConfig?.r2_buckets?.[0]?.binding ??
+        loadedConfig?.r2_buckets?.[0]?.bucket_name ??
+        undefined);
 
   const hasR2 =
     options.r2 !== undefined ||
@@ -213,7 +213,8 @@ export function discoverWranglerTasks(
 
   configs.forEach((found, index) => {
     const rawFallback = found.relative_path.replace(/[/\\]/g, "-").replace(/\.(toml|jsonc?)$/, "");
-    const fallback = rawFallback === "wrangler" ? rawFallback : rawFallback.replace(/[-/]wrangler$/, "");
+    const fallback =
+      rawFallback === "wrangler" ? rawFallback : rawFallback.replace(/[-/]wrangler$/, "");
     const name = found.worker_name ?? fallback;
 
     const existing = claimed.get(name);
@@ -254,4 +255,3 @@ export function discoverWranglerTasks(
 
   return tasks;
 }
-

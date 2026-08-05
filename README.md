@@ -84,13 +84,13 @@ vp run webhooks#cf:dev
 The single most valuable thing here. Deploying to the wrong Cloudflare account
 is easy and expensive to undo.
 
-| Config `account_id` | `CLOUDFLARE_ACCOUNT_ID` | Result |
-| --- | --- | --- |
-| set | set, same | ✅ proceed |
-| set | set, different | ❌ **refuse** |
-| set | unset | ✅ proceed, config wins |
-| unset | set | ⚠️ proceed with warning |
-| unset | unset | ❌ **refuse** |
+| Config `account_id` | `CLOUDFLARE_ACCOUNT_ID` | Result                  |
+| ------------------- | ----------------------- | ----------------------- |
+| set                 | set, same               | ✅ proceed              |
+| set                 | set, different          | ❌ **refuse**           |
+| set                 | unset                   | ✅ proceed, config wins |
+| unset               | set                     | ⚠️ proceed with warning |
+| unset               | unset                   | ❌ **refuse**           |
 
 ```ts
 import { assertAccount } from "vite-plus-wrangler";
@@ -161,26 +161,26 @@ a guard that could not run never reports success.
 
 ### Environment variables
 
-| Variable | Purpose |
-| --- | --- |
-| `CLOUDFLARE_ACCOUNT_ID` | Compared against the config by the account guard |
-| `WRANGLER_RS_BIN` | Absolute path to a `wrangler-rs` binary, overriding resolution |
+| Variable                | Purpose                                                        |
+| ----------------------- | -------------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID` | Compared against the config by the account guard               |
+| `WRANGLER_RS_BIN`       | Absolute path to a `wrangler-rs` binary, overriding resolution |
 
 ---
 
 ## Plugin options
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `root` | Vite root | Directory to scan for wrangler configs |
-| `depth` | `6` | Max discovery depth (1–64) |
-| `env` | – | Wrangler environment to resolve |
-| `guardAccount` | `true` | Run the account check on `buildStart` |
-| `expectAccount` | config value | Explicit expected account id |
-| `failOnError` | `true` | Fail the build when the guard trips |
-| `checkMigrations` | `true` | Check D1 migration ordering on build |
-| `exposeVars` | `false` | Expose `vars` as `import.meta.env.WRANGLER_*` |
-| `devEndpoint` | `false` | Serve `GET /__wrangler/config` from the dev server |
+| Option            | Default      | Description                                        |
+| ----------------- | ------------ | -------------------------------------------------- |
+| `root`            | Vite root    | Directory to scan for wrangler configs             |
+| `depth`           | `6`          | Max discovery depth (1–64)                         |
+| `env`             | –            | Wrangler environment to resolve                    |
+| `guardAccount`    | `true`       | Run the account check on `buildStart`              |
+| `expectAccount`   | config value | Explicit expected account id                       |
+| `failOnError`     | `true`       | Fail the build when the guard trips                |
+| `checkMigrations` | `true`       | Check D1 migration ordering on build               |
+| `exposeVars`      | `false`      | Expose `vars` as `import.meta.env.WRANGLER_*`      |
+| `devEndpoint`     | `false`      | Serve `GET /__wrangler/config` from the dev server |
 
 ---
 

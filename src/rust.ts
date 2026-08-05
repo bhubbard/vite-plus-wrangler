@@ -15,7 +15,6 @@ import type {
   WranglerConfig,
 } from "./types.js";
 
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const BUILD_HINT =
@@ -95,9 +94,7 @@ export function getBinaryPath(): string {
   const override = process.env.WRANGLER_RS_BIN;
   if (override) {
     if (!fs.existsSync(override)) {
-      throw new WranglerEngineError(
-        `WRANGLER_RS_BIN points at ${override}, which does not exist.`,
-      );
+      throw new WranglerEngineError(`WRANGLER_RS_BIN points at ${override}, which does not exist.`);
     }
     cached = override;
     return override;
@@ -402,7 +399,13 @@ export function checkCodeBindings(
       configured_bindings: [],
       missing_bindings: [],
       unused_bindings: [],
-      issues: [{ severity: "error", binding: "", message: `Bindings check could not run: ${error.message}` }],
+      issues: [
+        {
+          severity: "error",
+          binding: "",
+          message: `Bindings check could not run: ${error.message}`,
+        },
+      ],
     };
   }
   return value as CodeBindingsReport;

@@ -1,7 +1,7 @@
 # Second audit — `vite-plus-wrangler`
 
 **Date:** 2026-08-04
-**Subject:** the codebase *after* the [AUDIT.md](AUDIT.md) fix pass
+**Subject:** the codebase _after_ the [AUDIT.md](AUDIT.md) fix pass
 **Bias disclosure:** the same author wrote both the code under review and the previous audit. To compensate, findings here are weighted toward things that could be **reproduced by execution** rather than by re-reading the code. Every 🔴/🟠/🟡 finding below has a runnable repro.
 
 **Environment:** Rust 1.97.1 and Node 22.22.3 installed; the engine was compiled and executed against real fixtures, real `/bin/sh`, and synthetic monorepos of up to 4,000 Workers.
@@ -12,11 +12,11 @@
 
 ## Summary
 
-| Severity | Count |
-| --- | --- |
-| 🟠 High | 2 |
-| 🟡 Medium | 4 |
-| 🔵 Low | 6 |
+| Severity  | Count |
+| --------- | ----- |
+| 🟠 High   | 2     |
+| 🟡 Medium | 4     |
+| 🔵 Low    | 6     |
 
 **Six of the twelve findings are regressions introduced by the first fix pass.** That is the headline. The first audit's diagnoses were sound, but three of its fixes traded one bug for another — most importantly, the packaging fix (H-2) is defeated by the release workflow it shipped alongside, and the `migrations_dir` fix (M-4) broke the cache-portability fix (M-8) in the same commit.
 
@@ -24,14 +24,14 @@
 
 Worth stating plainly, because these were the highest-risk changes:
 
-| Area | Verification | Result |
-| --- | --- | --- |
-| `quote()` shell escaping | 41 hostile values round-tripped through real `/bin/sh` | **exact match on all 41** |
-| Injection rejection | `$(id)`, backticks, `;`, `\|`, `&`, newlines, `'`, unicode | never executed |
-| JSONC parser | 17 adversarial inputs (comment markers in strings, escaped quotes, `*/` in a string, unterminated constructs) | correct on all |
-| Dev-endpoint `Host` allowlist | 10 rebinding/spoofing attempts | all denied; fails closed |
-| Rust→TS JSON contract | every field of all three payloads compared to `types.ts` | no drift |
-| Config precedence | directory with all three config filenames | one entry, correct winner, both siblings reported |
+| Area                          | Verification                                                                                                  | Result                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `quote()` shell escaping      | 41 hostile values round-tripped through real `/bin/sh`                                                        | **exact match on all 41**                         |
+| Injection rejection           | `$(id)`, backticks, `;`, `\|`, `&`, newlines, `'`, unicode                                                    | never executed                                    |
+| JSONC parser                  | 17 adversarial inputs (comment markers in strings, escaped quotes, `*/` in a string, unterminated constructs) | correct on all                                    |
+| Dev-endpoint `Host` allowlist | 10 rebinding/spoofing attempts                                                                                | all denied; fails closed                          |
+| Rust→TS JSON contract         | every field of all three payloads compared to `types.ts`                                                      | no drift                                          |
+| Config precedence             | directory with all three config filenames                                                                     | one entry, correct winner, both siblings reported |
 
 ---
 
@@ -130,10 +130,10 @@ The plugin path is unaffected (it passes the absolute `target.path`), so this on
 
 The default `maxBuffer` is 1 MB. Measured against synthetic monorepos, `discover --json` crosses it at roughly **3,300 Workers**:
 
-| Workers | Output | Result |
-| --- | --- | --- |
-| 2,500 | 742 KB | parses, 2500 entries |
-| 4,000 | 1.19 MB | `ENOBUFS`, `SIGTERM`, stdout truncated to 1,114,112 bytes |
+| Workers | Output  | Result                                                    |
+| ------- | ------- | --------------------------------------------------------- |
+| 2,500   | 742 KB  | parses, 2500 entries                                      |
+| 4,000   | 1.19 MB | `ENOBUFS`, `SIGTERM`, stdout truncated to 1,114,112 bytes |
 
 `run()` checks `res.error` first, so this surfaces as `Failed to run <binary>: spawnSync ENOBUFS` — which reads like a broken binary, not "output too large". Downstream, `discoverConfigsSafe` warns and returns `[]`, so **the plugin silently sees zero Workers** in the largest repos, the ones this package is aimed at.
 
@@ -145,14 +145,14 @@ The default `maxBuffer` is 1 MB. Measured against synthetic monorepos, `discover
 
 ## 🔵 Low
 
-| ID | File | Finding | Repro |
-| --- | --- | --- | --- |
-| N-7 | `src/discovery.rs:69` | `walker.flatten()` discards every `WalkDir` error, so a nonexistent root, a path that is a file, and an unreadable directory all return `[]` with exit 0. A typo in `root` is indistinguishable from a repo with no Workers — the same fail-open pattern H-3 fixed one layer up. | `wrangler-rs discover /nope/not/here --json` → `[]`, exit 0 |
-| N-8 | `src/plugin.ts:15-23` | The `Host` allowlist is case-sensitive and rejects a trailing dot, so `LOCALHOST:5173` and `localhost.:5173` are refused. Both are valid per RFC 9110. Fails closed, so this is usability, not security. | `isLocalRequest("LOCALHOST:5173")` → `false` |
-| N-9 | `src/tasks.ts:123` | The unnamed-Worker fallback strips the extension *after* replacing separators, so `workers/api/wrangler.toml` becomes the task prefix `workers-api-wrangler`. The trailing `-wrangler` is noise; the directory name is what identifies the Worker. | `"workers/api/wrangler.toml".replace(/[/\\]/g,"-").replace(/\.(toml\|jsonc?)$/,"")` → `workers-api-wrangler` |
-| N-10 | `package.json` | `build:bin` and `build:platform` reference `scripts/copy-binary.mjs` and `scripts/build-platform-packages.mjs`, neither of which is in `files`. `npm run build` in an installed copy fails on a missing script. | `files` lists only `scripts/postinstall.mjs` |
-| N-11 | `.github/workflows/ci.yml:75,82` | `pnpm test` runs twice — once for results, once piped to `grep` for the skip check — doubling the Node job's runtime on all three OSes. The second run also omits `WRANGLER_RS_BIN` and only finds the engine because `../target/release` happens to resolve from `src/`. | two `pnpm test` invocations in one job |
-| N-12 | `src/migrations.rs` | Gap detection is gated on `prefix.len() <= 6`, so a project using 7-digit sequential prefixes silently loses gap warnings. The heuristic conflates "wide" with "timestamp". | prefixes `0000001`…`0000009` produce no gap warning |
+| ID   | File                             | Finding                                                                                                                                                                                                                                                                          | Repro                                                                                                        |
+| ---- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| N-7  | `src/discovery.rs:69`            | `walker.flatten()` discards every `WalkDir` error, so a nonexistent root, a path that is a file, and an unreadable directory all return `[]` with exit 0. A typo in `root` is indistinguishable from a repo with no Workers — the same fail-open pattern H-3 fixed one layer up. | `wrangler-rs discover /nope/not/here --json` → `[]`, exit 0                                                  |
+| N-8  | `src/plugin.ts:15-23`            | The `Host` allowlist is case-sensitive and rejects a trailing dot, so `LOCALHOST:5173` and `localhost.:5173` are refused. Both are valid per RFC 9110. Fails closed, so this is usability, not security.                                                                         | `isLocalRequest("LOCALHOST:5173")` → `false`                                                                 |
+| N-9  | `src/tasks.ts:123`               | The unnamed-Worker fallback strips the extension _after_ replacing separators, so `workers/api/wrangler.toml` becomes the task prefix `workers-api-wrangler`. The trailing `-wrangler` is noise; the directory name is what identifies the Worker.                               | `"workers/api/wrangler.toml".replace(/[/\\]/g,"-").replace(/\.(toml\|jsonc?)$/,"")` → `workers-api-wrangler` |
+| N-10 | `package.json`                   | `build:bin` and `build:platform` reference `scripts/copy-binary.mjs` and `scripts/build-platform-packages.mjs`, neither of which is in `files`. `npm run build` in an installed copy fails on a missing script.                                                                  | `files` lists only `scripts/postinstall.mjs`                                                                 |
+| N-11 | `.github/workflows/ci.yml:75,82` | `pnpm test` runs twice — once for results, once piped to `grep` for the skip check — doubling the Node job's runtime on all three OSes. The second run also omits `WRANGLER_RS_BIN` and only finds the engine because `../target/release` happens to resolve from `src/`.        | two `pnpm test` invocations in one job                                                                       |
+| N-12 | `src/migrations.rs`              | Gap detection is gated on `prefix.len() <= 6`, so a project using 7-digit sequential prefixes silently loses gap warnings. The heuristic conflates "wide" with "timestamp".                                                                                                      | prefixes `0000001`…`0000009` produce no gap warning                                                          |
 
 ---
 
@@ -162,7 +162,7 @@ Worth recording, since the first audit asserted a clean bill of health:
 
 - **"All green" was accurate but narrow.** The suite genuinely passed. It did not cover the release workflow's output (N-1), the interaction between two fixes in different files (N-3, N-4, N-5), or any input larger than a two-Worker fixture (N-6).
 - **The M-8 regression test was too specific.** It asserts `cf:types` inputs are relative. It does not look at `d1:migrate:check`, which is where the absolute path reappeared.
-- **Integration tests only ever ran against `test/fixtures/basic-worker`,** a single Worker at the fixture root. Every path-resolution bug found here needs a Worker in a *subdirectory* to appear.
+- **Integration tests only ever ran against `test/fixtures/basic-worker`,** a single Worker at the fixture root. Every path-resolution bug found here needs a Worker in a _subdirectory_ to appear.
 
 ---
 
@@ -179,7 +179,6 @@ Worth recording, since the first audit asserted a clean bill of health:
 
 The bugs above share a root cause: **every fixture is a single Worker at the root of its scan.** Before fixing N-3/N-4/N-5, add a `test/fixtures/monorepo/` with at least two Workers in subdirectories, one with a non-default `migrations_dir`, and run `discoverWranglerTasks` against it from a different cwd. That one fixture would have caught four of the six regressions.
 
-
 ---
 
 ## Resolution log
@@ -193,11 +192,11 @@ The helper generated directory names from `process::id()` plus
 one process, so the pid contributes nothing and uniqueness rested entirely on
 clock resolution. Measured with 16 threads generating 32,000 names:
 
-| Clock resolution | Collisions |
-| --- | --- |
-| 1 ns (typical Linux) | 63 – 710 depending on contention |
-| ~1 µs (typical macOS) | 25,751 |
-| **Atomic counter (the fix)** | **0** |
+| Clock resolution             | Collisions                       |
+| ---------------------------- | -------------------------------- |
+| 1 ns (typical Linux)         | 63 – 710 depending on contention |
+| ~1 µs (typical macOS)        | 25,751                           |
+| **Atomic counter (the fix)** | **0**                            |
 
 The failure was silent rather than loud: `create_dir_all` succeeds on an
 existing directory, so two tests shared one directory and each saw the other's
@@ -210,7 +209,7 @@ panics instead of silently sharing. Verified with a 400-way concurrent
 uniqueness test and **25 consecutive `cargo test` runs at `RUST_TEST_THREADS=32`,
 all green**.
 
-The gap worth naming: this audit checked what the tests *assert*, never
+The gap worth naming: this audit checked what the tests _assert_, never
 whether the harness itself was sound.
 
 ### N-1 — Native binary in the published tarball
@@ -218,17 +217,17 @@ whether the harness itself was sound.
 **Fixed.** `files` now carries `"!dist/bin"`, `release.yml` runs `build:dist`
 (`vp pack` only) instead of `pnpm build`, and a pack-time guard fails the
 release if `dist/bin` ever appears. Both `getBinaryPath()` and
-`postinstall.mjs` now confirm a candidate binary *runs* (`--version`) rather
+`postinstall.mjs` now confirm a candidate binary _runs_ (`--version`) rather
 than merely existing, so a wrong-architecture binary no longer suppresses the
 source-build fallback.
 
-Verified with `npm pack --dry-run` against a tree that *does* contain a 3.6 MB
+Verified with `npm pack --dry-run` against a tree that _does_ contain a 3.6 MB
 binary at `dist/bin/wrangler-rs`:
 
-| | Before | After |
-| --- | --- | --- |
+|                       | Before | After       |
+| --------------------- | ------ | ----------- |
 | Tarball unpacked size | 3.7 MB | **72.2 kB** |
-| `dist/bin` present | yes | **no** |
+| `dist/bin` present    | yes    | **no**      |
 
 ### N-2 — CI could not install: `--frozen-lockfile` with no lockfile
 
@@ -248,14 +247,14 @@ end with pnpm 11.20.0.
 
 **Fix:** `optionalDependencies` moved out of the committed manifest (with a
 comment explaining why) and injected at publish time by
-`scripts/set-optional-deps.mjs`, which `release.yml` runs *after* the platform
+`scripts/set-optional-deps.mjs`, which `release.yml` runs _after_ the platform
 packages are published. `pnpm-lock.yaml` is now committed and
 `pnpm install --frozen-lockfile` passes.
 
 ### N-3, N-4, N-5 — Migrations path resolution
 
 **Fixed as one change.** New `migrationsDirFor()` joins `migrations_dir` onto
-the config's directory *without* resolving against `process.cwd()`, so relative
+the config's directory _without_ resolving against `process.cwd()`, so relative
 in means relative out. `d1Tasks` derives both the command and the cache
 `inputs` glob from that single value, so they cannot disagree (N-3), the path
 stays relative and the cache key stays portable (N-4), and a path relative to
@@ -285,16 +284,16 @@ are observable in that shape.
 
 ### Verification
 
-| Check | Result |
-| --- | --- |
-| `cargo test` | 38 passing (31 lib + 7 bin) |
-| `cargo test` × 25 at `RUST_TEST_THREADS=32` | 25/25 green — no flakes |
-| `cargo clippy --all-targets -- -D warnings` | 0 errors |
-| `cargo fmt --all -- --check` | clean |
-| `tsc --noEmit` (strict + `noUncheckedIndexedAccess`) | clean |
-| `vitest run` | 47 passing, 1 skipped |
-| `pnpm install --frozen-lockfile` | passes |
-| `npm pack --dry-run` with a binary in `dist/bin` | 72.2 kB, no `dist/bin` |
+| Check                                                | Result                      |
+| ---------------------------------------------------- | --------------------------- |
+| `cargo test`                                         | 38 passing (31 lib + 7 bin) |
+| `cargo test` × 25 at `RUST_TEST_THREADS=32`          | 25/25 green — no flakes     |
+| `cargo clippy --all-targets -- -D warnings`          | 0 errors                    |
+| `cargo fmt --all -- --check`                         | clean                       |
+| `tsc --noEmit` (strict + `noUncheckedIndexedAccess`) | clean                       |
+| `vitest run`                                         | 47 passing, 1 skipped       |
+| `pnpm install --frozen-lockfile`                     | passes                      |
+| `npm pack --dry-run` with a binary in `dist/bin`     | 72.2 kB, no `dist/bin`      |
 
 ### Still open (all Low)
 

@@ -36,7 +36,7 @@ First pass over the findings in [`AUDIT.md`](AUDIT.md).
   every file after the first looked like a duplicate. Indices are now `u64`, and
   gap detection is skipped for timestamp-style prefixes.
 - **An unknown `--env` silently resolved to the top-level config.** `--env producton`
-  reported a passing account check against the *default* environment. Unknown
+  reported a passing account check against the _default_ environment. Unknown
   environment names are now an error listing the ones that exist.
 - **`migrations_dir` resolved against the wrong base.** Wrangler treats it as
   relative to the config file; the plugin resolved it against the Vite root, which

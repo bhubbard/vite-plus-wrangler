@@ -14,13 +14,13 @@ cargo build --release   # required: the integration tests need the engine
 
 ## Layout
 
-| Path | What it is |
-| --- | --- |
-| `src/*.rs` | The engine. Everything that touches the filesystem or parses config. |
-| `src/*.ts` | A thin Node wrapper: task generation, the Vite plugin, and the CLI shim. |
-| `src/shell.ts` | Shell-safe command construction. Read this before generating any command. |
+| Path             | What it is                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `src/*.rs`       | The engine. Everything that touches the filesystem or parses config.           |
+| `src/*.ts`       | A thin Node wrapper: task generation, the Vite plugin, and the CLI shim.       |
+| `src/shell.ts`   | Shell-safe command construction. Read this before generating any command.      |
 | `test/fixtures/` | Real wrangler configs and migration directories used by the integration tests. |
-| `scripts/` | Build and packaging helpers. |
+| `scripts/`       | Build and packaging helpers.                                                   |
 
 The two halves must agree: `src/types.ts` describes the JSON the Rust binary
 emits. Changing a `Serialize` struct means changing the matching interface, and

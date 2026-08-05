@@ -31,4 +31,3 @@ export default defineConfig({
     "*": "vp check --fix",
   },
 });
-

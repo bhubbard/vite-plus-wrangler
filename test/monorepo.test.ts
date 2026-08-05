@@ -88,7 +88,9 @@ describe("N-5: paths are relative to the scan root, not process.cwd()", () => {
   });
 
   it("an absolute migrations_dir is left alone", () => {
-    expect(migrationsDirFor("workers/api/wrangler.toml", "/opt/migrations")).toBe("/opt/migrations");
+    expect(migrationsDirFor("workers/api/wrangler.toml", "/opt/migrations")).toBe(
+      "/opt/migrations",
+    );
   });
 });
 
@@ -104,7 +106,10 @@ describe("discoverWranglerTasks fallback naming and proxy generation", () => {
 
   it("assigns sequential ports to Workers and emits cf:dev:all task", async () => {
     const { discoverWranglerTasks } = await import("../src/tasks.js");
-    const tasks = discoverWranglerTasks(monorepo, { basePort: 8787 }) as Record<string, { command: string; dependsOn?: unknown[] }>;
+    const tasks = discoverWranglerTasks(monorepo, { basePort: 8787 }) as Record<
+      string,
+      { command: string; dependsOn?: unknown[] }
+    >;
 
     expect(tasks["api#cf:dev"]?.command).toContain("--port 8787");
     expect(tasks["webhooks#cf:dev"]?.command).toContain("--port 8788");
@@ -163,8 +168,6 @@ describe("discoverWranglerTasks fallback naming and proxy generation", () => {
   });
 });
 
-
-
 describe.skipIf(!binary)("engine against the monorepo fixture", () => {
   const discover = (root: string, cwd: string): DiscoveredConfig[] =>
     JSON.parse(
@@ -191,8 +194,7 @@ describe.skipIf(!binary)("engine against the monorepo fixture", () => {
 
   it("the directory each generated task checks actually exists under the root", () => {
     for (const found of discover(monorepo, repoRoot)) {
-      const migrationsDir =
-        found.worker_name === "webhooks" ? "db/migrations" : "migrations";
+      const migrationsDir = found.worker_name === "webhooks" ? "db/migrations" : "migrations";
       const rel = migrationsDirFor(found.relative_path, migrationsDir);
       const absolute = path.resolve(monorepo, rel);
       expect(fs.existsSync(absolute), `${rel} should exist under the scan root`).toBe(true);

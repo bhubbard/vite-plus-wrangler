@@ -63,6 +63,4 @@ export {
   assertIdentifier,
 };
 
-
-
 export default wrangler;

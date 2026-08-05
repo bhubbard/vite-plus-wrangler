@@ -26,9 +26,7 @@ export interface R2TaskOptions {
  * Generate task definition for KV key-value seeding (`cf:kv:seed`).
  */
 export function kvTasks(options: KVTaskOptions = {}): Record<string, unknown> {
-  const binding = options.binding
-    ? assertIdentifier(options.binding, "kv binding")
-    : "KV";
+  const binding = options.binding ? assertIdentifier(options.binding, "kv binding") : "KV";
   const flags = wranglerFlags(options);
 
   const seed = options.seed ?? "kv-seed.json";
@@ -36,7 +34,17 @@ export function kvTasks(options: KVTaskOptions = {}): Record<string, unknown> {
   const command =
     seed.includes(" ") && !seed.endsWith(".json")
       ? join("wrangler", "kv", "key", "put", seed, "--binding", binding, "--local", ...flags)
-      : join("wrangler", "kv", "bulk", "put", quote(seed), "--binding", binding, "--local", ...flags);
+      : join(
+          "wrangler",
+          "kv",
+          "bulk",
+          "put",
+          quote(seed),
+          "--binding",
+          binding,
+          "--local",
+          ...flags,
+        );
 
   return {
     "cf:kv:seed": {
@@ -50,9 +58,7 @@ export function kvTasks(options: KVTaskOptions = {}): Record<string, unknown> {
  * Generate task definition for R2 object directory syncing (`cf:r2:sync`).
  */
 export function r2Tasks(options: R2TaskOptions = {}): Record<string, unknown> {
-  const bucket = options.bucket
-    ? assertIdentifier(options.bucket, "r2 bucket")
-    : "BUCKET";
+  const bucket = options.bucket ? assertIdentifier(options.bucket, "r2 bucket") : "BUCKET";
   const flags = wranglerFlags(options);
 
   const syncDir = options.syncDir ?? "public";

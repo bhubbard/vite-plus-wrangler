@@ -4,22 +4,22 @@
   "description": "Cloudflare Wrangler plugin and CLI for the Vite+ toolchain — task wiring, account guards, D1 migrations, and config discovery",
   "keywords": [
     "cloudflare",
-    "wrangler",
-    "workers",
     "d1",
     "rust",
     "vite",
-    "vite-plus"
+    "vite-plus",
+    "workers",
+    "wrangler"
   ],
+  "homepage": "https://github.com/bhubbard/vite-plus-wrangler#readme",
+  "bugs": {
+    "url": "https://github.com/bhubbard/vite-plus-wrangler/issues"
+  },
   "license": "MIT",
   "author": "Brandon Hubbard <bkhubbard@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bhubbard/vite-plus-wrangler.git"
-  },
-  "homepage": "https://github.com/bhubbard/vite-plus-wrangler#readme",
-  "bugs": {
-    "url": "https://github.com/bhubbard/vite-plus-wrangler/issues"
   },
   "bin": {
     "vite-plus-wrangler": "dist/cli.js"
@@ -58,23 +58,6 @@
     "fmt": "vp fmt --check",
     "postinstall": "node scripts/postinstall.mjs"
   },
-  "peerDependencies": {
-    "wrangler": ">=3"
-  },
-  "peerDependenciesMeta": {
-    "wrangler": {
-      "optional": false
-    }
-  },
-  "//optionalDependencies": [
-    "The @vite-plus-wrangler/* prebuilt-binary packages are added at publish",
-    "time by scripts/set-optional-deps.mjs, not committed here.",
-    "Declaring them in the repo is a bootstrap deadlock: they do not exist on",
-    "npm until a release publishes them, pnpm drops unresolvable optional deps",
-    "from the lockfile, and `pnpm install --frozen-lockfile` then fails with",
-    "ERR_PNPM_OUTDATED_LOCKFILE — so CI can never run the release that would",
-    "publish them. See AUDIT-2.md N-2."
-  ],
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsdown": "^0.15.0",
@@ -83,10 +66,25 @@
     "vite-plus": "^0.1.0",
     "vitest": "^3.0.0"
   },
+  "peerDependencies": {
+    "wrangler": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "wrangler": {
+      "optional": false
+    }
+  },
   "engines": {
     "node": ">=22.12.0"
   },
-  "packageManager": "pnpm@11.20.0"
+  "packageManager": "pnpm@11.20.0",
+  "//optionalDependencies": [
+    "The @vite-plus-wrangler/* prebuilt-binary packages are added at publish",
+    "time by scripts/set-optional-deps.mjs, not committed here.",
+    "Declaring them in the repo is a bootstrap deadlock: they do not exist on",
+    "npm until a release publishes them, pnpm drops unresolvable optional deps",
+    "from the lockfile, and `pnpm install --frozen-lockfile` then fails with",
+    "ERR_PNPM_OUTDATED_LOCKFILE — so CI can never run the release that would",
+    "publish them. See AUDIT-2.md N-2."
+  ]
 }
-
-

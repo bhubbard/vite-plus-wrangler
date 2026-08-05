@@ -13,8 +13,16 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { AccountCheck, BundleSizeReport, CodeBindingsReport, DiscoveredConfig, LintReport, MigrationReport, SecretsReport, WranglerConfig } from "../src/types.js";
-
+import type {
+  AccountCheck,
+  BundleSizeReport,
+  CodeBindingsReport,
+  DiscoveredConfig,
+  LintReport,
+  MigrationReport,
+  SecretsReport,
+  WranglerConfig,
+} from "../src/types.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -199,7 +207,10 @@ describe.skipIf(!binary)("engine integration", () => {
 
   describe("secrets-check", () => {
     it("reports missing .dev.vars as warning", () => {
-      const { data, status } = json<SecretsReport>(["secrets-check", path.join(fixture, "wrangler.toml")]);
+      const { data, status } = json<SecretsReport>([
+        "secrets-check",
+        path.join(fixture, "wrangler.toml"),
+      ]);
       expect(status).toBe(0);
       expect(data.ok).toBe(true);
       expect(data.issues.some((i) => i.message.includes(".dev.vars"))).toBe(true);
@@ -216,7 +227,12 @@ describe.skipIf(!binary)("engine integration", () => {
     });
 
     it("respects custom limit-mb flag", () => {
-      const { data, status } = json<BundleSizeReport>(["bundle-check", "non_existent_dist", "--limit-mb", "10"]);
+      const { data, status } = json<BundleSizeReport>([
+        "bundle-check",
+        "non_existent_dist",
+        "--limit-mb",
+        "10",
+      ]);
       expect(status).toBe(1);
       expect(data.limit_mb).toBe(10);
       expect(data.limit_bytes).toBe(10485760);
@@ -240,19 +256,19 @@ describe.skipIf(!binary)("engine integration", () => {
 
   describe("bindings-check", () => {
     it("detects codebase AST bindings against config", () => {
-      const { data, status } = json<CodeBindingsReport>([
+      const { data } = json<CodeBindingsReport>([
         "bindings-check",
         path.join(fixture, "wrangler.toml"),
         "--src",
         path.join(fixture, "src"),
       ]);
+
       expect(data.config_path).toContain("wrangler.toml");
       expect(Array.isArray(data.referenced_bindings)).toBe(true);
     });
   });
 
   describe("argument handling", () => {
-
     it("rejects a flag with no value", () => {
       expect(engine(["config", path.join(fixture, "wrangler.toml"), "--env"]).status).toBe(2);
     });

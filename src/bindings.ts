@@ -20,7 +20,16 @@ export interface CodeBindingsReport {
 }
 
 const RESERVED_KEYS = new Set([
-  "NODE_ENV", "CF_PAGES", "FETCH", "ASSETS", "PROD", "DEV", "MODE", "SSR", "CF", "REQUEST",
+  "NODE_ENV",
+  "CF_PAGES",
+  "FETCH",
+  "ASSETS",
+  "PROD",
+  "DEV",
+  "MODE",
+  "SSR",
+  "CF",
+  "REQUEST",
 ]);
 
 /**
@@ -72,7 +81,10 @@ export function checkCodeBindings(
   options: { env?: string } = {},
 ): CodeBindingsReport {
   const report = rustCheckCodeBindings(configPath, srcDir, options);
-  if (!report.ok && report.issues.some((i: CodeBindingIssue) => i.message.includes("could not run"))) {
+  if (
+    !report.ok &&
+    report.issues.some((i: CodeBindingIssue) => i.message.includes("could not run"))
+  ) {
     return checkCodeBindingsJs(configPath, srcDir);
   }
   return report;

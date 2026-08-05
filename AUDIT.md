@@ -11,25 +11,25 @@
 
 ## Summary
 
-| Severity | Count | Resolved |
-| --- | --- | --- |
-| 🔴 Critical | 2 | 2 |
-| 🟠 High | 4 | 4 |
-| 🟡 Medium | 9 | 9 |
-| 🔵 Low | 8 | 8 |
+| Severity    | Count | Resolved |
+| ----------- | ----- | -------- |
+| 🔴 Critical | 2     | 2        |
+| 🟠 High     | 4     | 4        |
+| 🟡 Medium   | 9     | 9        |
+| 🔵 Low      | 8     | 8        |
 
 The architecture is sound: a single Rust binary owns all parsing and filesystem work, the Node layer is genuinely thin, and the account guard fails closed in the case that matters most (config and env disagree). The problems clustered in three places — **shell command construction**, **the Vite plugin's hook ordering**, and **release packaging**.
 
 ### Verification after the fix pass
 
-| Check | Result |
-| --- | --- |
-| `cargo test` | 36 passing (29 lib + 7 bin) |
-| `cargo clippy --all-targets -- -D warnings` | clean |
-| `cargo fmt --all -- --check` | clean |
-| `tsc --noEmit` (strict + `noUncheckedIndexedAccess`) | clean |
-| `vitest run` (unit) | 23 passing |
-| `vitest run` (integration, real binary vs. fixtures) | 15 passing |
+| Check                                                | Result                      |
+| ---------------------------------------------------- | --------------------------- |
+| `cargo test`                                         | 36 passing (29 lib + 7 bin) |
+| `cargo clippy --all-targets -- -D warnings`          | clean                       |
+| `cargo fmt --all -- --check`                         | clean                       |
+| `tsc --noEmit` (strict + `noUncheckedIndexedAccess`) | clean                       |
+| `vitest run` (unit)                                  | 23 passing                  |
+| `vitest run` (integration, real binary vs. fixtures) | 15 passing                  |
 
 One finding was **introduced and caught during the fix pass**: the new port validation used a truthiness check, so `port: 0` skipped validation instead of being rejected — the same silent-default pattern the audit was fixing. Caught by `rejects a port that is not a real port`, fixed in `tasks.ts`.
 
@@ -48,8 +48,8 @@ A second was caught by the Rust suite: the new discovery precedence test asserte
 Task commands are built by string interpolation with no quoting or escaping:
 
 ```ts
-command: `wrangler d1 migrations apply ${database} --local${suffix}`   // d1.ts:38
-command: `wrangler dev ${devFlags}`.trim()                             // tasks.ts:41
+command: `wrangler d1 migrations apply ${database} --local${suffix}`; // d1.ts:38
+command: `wrangler dev ${devFlags}`.trim(); // tasks.ts:41
 ```
 
 `database`, `env`, `config`, `migrationsDir`, `port`, `devArgs`, and `deployArgs` all flow in unescaped. In `discoverWranglerTasks` (`tasks.ts:96`) the `config` value is `found.path` — a path read off the filesystem, and `database`/`env` in a monorepo commonly come from a checked-in `wrangler.toml` rather than from the person typing the command.
@@ -121,7 +121,11 @@ There is also no `postinstall` that would build from source as a fallback, and `
 
 ```ts
 const res = spawnSync(getBinaryPath(), [...args, "--json"], { encoding: "utf-8" });
-if (res.stdout) { try { return JSON.parse(res.stdout.trim()) as T; } catch {} }
+if (res.stdout) {
+  try {
+    return JSON.parse(res.stdout.trim()) as T;
+  } catch {}
+}
 return fallback;
 ```
 
@@ -174,7 +178,7 @@ let index = prefix.parse::<u32>().unwrap_or(0);
 let Some(child) = self.env.get(env_name) else { return self.clone(); };
 ```
 
-`--env production` against a config with no `[env.production]` returns the top-level config with no warning. For `cmd_config` that is merely confusing; for `cmd_account_check` (`main.rs:180`) it is a safety hole — the guard validates the *default* account and reports success, while the user believes they validated production. A typo in an environment name (`--env prod` vs `--env production`) produces a green check on the wrong target.
+`--env production` against a config with no `[env.production]` returns the top-level config with no warning. For `cmd_config` that is merely confusing; for `cmd_account_check` (`main.rs:180`) it is a safety hole — the guard validates the _default_ account and reports success, while the user believes they validated production. A typo in an environment name (`--env prod` vs `--env production`) produces a green check on the wrong target.
 
 **Fix:** return `Result` and error on an unknown environment name, listing the ones that do exist. This is the one place in the codebase where failing open is genuinely dangerous.
 
@@ -276,29 +280,29 @@ On the Rust side there are 5 tests total. `discovery.rs` has none. `migrations.r
 
 ## 🔵 Low
 
-| ID | File | Finding |
-| --- | --- | --- |
-| L-1 | `src/tasks.ts:88` | Uses bare `process.cwd()` without `import process from "node:process"` — the only file of the nine that does not import it. Works at runtime; inconsistent and lint-fragile. |
-| L-2 | `src/rust.ts:45` | Falls back to bare `exeName`, so `spawnSync` resolves `wrangler-rs` from `PATH`. Combined with H-2 (missing binary is the common case), this can execute an unrelated binary. Prefer failing with a clear "binary not found" error. |
-| L-3 | `src/rust.ts:36-38` | `getBinaryPath()` chmods the binary as a side effect of a *lookup* function, on every call. Move to install time. |
-| L-4 | `src/main.rs:60-70` | `--env` / `--expect` / `--depth` as the final argument silently yield `None`; `--depth abc` silently becomes 6. Bad flag values should be errors, not defaults. |
-| L-5 | `src/main.rs:70` + `discovery.rs:42` | `--depth 0` makes `WalkDir::max_depth(0)` visit only the root directory, so discovery always returns empty. Reject 0 or treat it as unlimited. |
-| L-6 | `src/config.rs:96` | `for_env` inherits `compatibility_flags` whenever the child's list is empty, so an environment that deliberately sets `compatibility_flags = []` silently gets the parent's. Same pattern for the `d1_databases`/`kv_namespaces`/`r2_buckets` arrays. Distinguish "absent" from "explicitly empty" with `Option<Vec<_>>`. |
-| L-7 | `src/discovery.rs:8,61` | A directory holding both `wrangler.toml` and `wrangler.json` yields two `DiscoveredConfig` entries with no precedence rule and no warning. Wrangler itself picks one. |
-| L-8 | `src/d1.ts:17-22` vs `src/tasks.ts:5-10` | Two near-identical `flags`/`suffix` helpers that emit flags in opposite order (`--env --config` vs `--config --env`). Harmless today; a duplicated helper that has already diverged once will diverge again. |
+| ID  | File                                     | Finding                                                                                                                                                                                                                                                                                                                   |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L-1 | `src/tasks.ts:88`                        | Uses bare `process.cwd()` without `import process from "node:process"` — the only file of the nine that does not import it. Works at runtime; inconsistent and lint-fragile.                                                                                                                                              |
+| L-2 | `src/rust.ts:45`                         | Falls back to bare `exeName`, so `spawnSync` resolves `wrangler-rs` from `PATH`. Combined with H-2 (missing binary is the common case), this can execute an unrelated binary. Prefer failing with a clear "binary not found" error.                                                                                       |
+| L-3 | `src/rust.ts:36-38`                      | `getBinaryPath()` chmods the binary as a side effect of a _lookup_ function, on every call. Move to install time.                                                                                                                                                                                                         |
+| L-4 | `src/main.rs:60-70`                      | `--env` / `--expect` / `--depth` as the final argument silently yield `None`; `--depth abc` silently becomes 6. Bad flag values should be errors, not defaults.                                                                                                                                                           |
+| L-5 | `src/main.rs:70` + `discovery.rs:42`     | `--depth 0` makes `WalkDir::max_depth(0)` visit only the root directory, so discovery always returns empty. Reject 0 or treat it as unlimited.                                                                                                                                                                            |
+| L-6 | `src/config.rs:96`                       | `for_env` inherits `compatibility_flags` whenever the child's list is empty, so an environment that deliberately sets `compatibility_flags = []` silently gets the parent's. Same pattern for the `d1_databases`/`kv_namespaces`/`r2_buckets` arrays. Distinguish "absent" from "explicitly empty" with `Option<Vec<_>>`. |
+| L-7 | `src/discovery.rs:8,61`                  | A directory holding both `wrangler.toml` and `wrangler.json` yields two `DiscoveredConfig` entries with no precedence rule and no warning. Wrangler itself picks one.                                                                                                                                                     |
+| L-8 | `src/d1.ts:17-22` vs `src/tasks.ts:5-10` | Two near-identical `flags`/`suffix` helpers that emit flags in opposite order (`--env --config` vs `--config --env`). Harmless today; a duplicated helper that has already diverged once will diverge again.                                                                                                              |
 
 ### Low — resolutions
 
-| ID | Resolution |
-| --- | --- |
-| L-1 | `import process from "node:process"` added; a grep check confirms all nine `.ts` files that touch `process` now import it. |
-| L-2 | The `PATH` fallback is gone. `getBinaryPath()` throws a `WranglerEngineError` listing every location searched, the expected platform package, and how to build. |
-| L-3 | Resolution is memoized and the chmod runs only on first resolve. `resetBinaryPathCache()` is exported for tests. |
-| L-4 | `take_value()` errors when a flag's value is missing or is itself a flag; `--depth` errors on a non-numeric value. `parse_args` returns `Result` and usage errors exit 2. Seven unit tests cover the cases. |
-| L-5 | `--depth` is validated to 1–64. Verified: `--depth 0` exits 2 with `--depth must be between 1 and 64`. |
+| ID  | Resolution                                                                                                                                                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L-1 | `import process from "node:process"` added; a grep check confirms all nine `.ts` files that touch `process` now import it.                                                                                                                                                      |
+| L-2 | The `PATH` fallback is gone. `getBinaryPath()` throws a `WranglerEngineError` listing every location searched, the expected platform package, and how to build.                                                                                                                 |
+| L-3 | Resolution is memoized and the chmod runs only on first resolve. `resetBinaryPathCache()` is exported for tests.                                                                                                                                                                |
+| L-4 | `take_value()` errors when a flag's value is missing or is itself a flag; `--depth` errors on a non-numeric value. `parse_args` returns `Result` and usage errors exit 2. Seven unit tests cover the cases.                                                                     |
+| L-5 | `--depth` is validated to 1–64. Verified: `--depth 0` exits 2 with `--depth must be between 1 and 64`.                                                                                                                                                                          |
 | L-6 | List fields are `Option<Vec<_>>`, so an omitted key inherits and an explicit `[]` does not. A custom serializer keeps the JSON contract (`[]`, never `null`). Covered by `omitted_bindings_inherit_but_explicit_empty_does_not` and `empty_lists_serialize_as_arrays_not_null`. |
-| L-7 | Precedence is `wrangler.toml` → `.jsonc` → `.json`; one directory now yields one entry, with the ignored siblings listed in a new `shadowed` field and warned about by the plugin. |
-| L-8 | Both helpers replaced by `wranglerFlags()` in `src/shell.ts`, with a test pinning the flag order. |
+| L-7 | Precedence is `wrangler.toml` → `.jsonc` → `.json`; one directory now yields one entry, with the ignored siblings listed in a new `shadowed` field and warned about by the plugin.                                                                                              |
+| L-8 | Both helpers replaced by `wranglerFlags()` in `src/shell.ts`, with a test pinning the flag order.                                                                                                                                                                               |
 
 ---
 
@@ -306,16 +310,16 @@ On the Rust side there are 5 tests total. `discovery.rs` has none. `migrations.r
 
 Not code defects, but they affect whether this is publishable.
 
-| Finding | Resolution |
-| --- | --- |
-| Not a git repository | `git init` plus a baseline commit of the pre-audit state, so the fixes land as a reviewable diff. |
-| No `Cargo.lock` | Generated and committed, with a `.gitignore` comment explaining why it must stay committed. |
-| No CI | `.github/workflows/ci.yml` runs fmt, clippy, and tests for Rust and Node across Linux, macOS, and Windows, and **fails if the integration tests skip**. `release.yml` handles the cross-compile and publish. |
-| Missing community health files | `CHANGELOG.md`, `CONTRIBUTING.md`, and `SECURITY.md` added. `SECURITY.md` documents the command-construction rule and the account guard's limits. |
-| Missing package metadata | `author`, `repository`, `homepage`, `bugs` added to `package.json`; `repository`, `homepage`, `readme`, `keywords`, `categories`, `rust-version`, `exclude` added to `Cargo.toml`. |
-| `pnpm-workspace.yaml` had no `packages:` | Added `packages: []` with a comment explaining the file exists for `allowBuilds` and that `npm/*` is published directly by CI. |
-| `tsconfig.json` excluded `test/` and `vite.config.ts` | Now typecheck-only (`noEmit`) covering `src`, `test`, and `vite.config.ts`, with `noUncheckedIndexedAccess` and other strictness added. Passes clean. |
-| `.rs` and `.ts` share `src/` | **Left as-is.** Moving the crate would churn every path in the build, CI, and packaging scripts for a readability gain. Revisit if the file count grows. |
+| Finding                                               | Resolution                                                                                                                                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Not a git repository                                  | `git init` plus a baseline commit of the pre-audit state, so the fixes land as a reviewable diff.                                                                                                            |
+| No `Cargo.lock`                                       | Generated and committed, with a `.gitignore` comment explaining why it must stay committed.                                                                                                                  |
+| No CI                                                 | `.github/workflows/ci.yml` runs fmt, clippy, and tests for Rust and Node across Linux, macOS, and Windows, and **fails if the integration tests skip**. `release.yml` handles the cross-compile and publish. |
+| Missing community health files                        | `CHANGELOG.md`, `CONTRIBUTING.md`, and `SECURITY.md` added. `SECURITY.md` documents the command-construction rule and the account guard's limits.                                                            |
+| Missing package metadata                              | `author`, `repository`, `homepage`, `bugs` added to `package.json`; `repository`, `homepage`, `readme`, `keywords`, `categories`, `rust-version`, `exclude` added to `Cargo.toml`.                           |
+| `pnpm-workspace.yaml` had no `packages:`              | Added `packages: []` with a comment explaining the file exists for `allowBuilds` and that `npm/*` is published directly by CI.                                                                               |
+| `tsconfig.json` excluded `test/` and `vite.config.ts` | Now typecheck-only (`noEmit`) covering `src`, `test`, and `vite.config.ts`, with `noUncheckedIndexedAccess` and other strictness added. Passes clean.                                                        |
+| `.rs` and `.ts` share `src/`                          | **Left as-is.** Moving the crate would churn every path in the build, CI, and packaging scripts for a readability gain. Revisit if the file count grows.                                                     |
 
 ---
 
@@ -323,11 +327,11 @@ Not code defects, but they affect whether this is publishable.
 
 The README is unusually accurate for a 0.1.0 — the account-guard truth table matches `account.rs:36-79` exactly, case for case. Three corrections were needed:
 
-| Finding | Resolution |
-| --- | --- |
-| `exposeVars` documented but non-functional | Fixed (H-1), so the docs are now true. |
-| "Exit codes are non-zero on failure" was not reliable | Fixed (H-4). README now spells out the exit-code contract (0 success, 1 finding, 2 usage) and states that a guard which could not run never reports success. |
-| `WRANGLER_RS_BIN` undocumented | Documented in a new environment-variable table, along with an "Installation internals" section covering the platform packages and the `postinstall` fallback. |
+| Finding                                               | Resolution                                                                                                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exposeVars` documented but non-functional            | Fixed (H-1), so the docs are now true.                                                                                                                        |
+| "Exit codes are non-zero on failure" was not reliable | Fixed (H-4). README now spells out the exit-code contract (0 success, 1 finding, 2 usage) and states that a guard which could not run never reports success.  |
+| `WRANGLER_RS_BIN` undocumented                        | Documented in a new environment-variable table, along with an "Installation internals" section covering the platform packages and the `postinstall` fallback. |
 
 Also added: the `devEndpoint` option and its security rationale, the account guard's scope limits, timestamp-prefix support, and `migrations_dir` resolution semantics.
 

@@ -34,7 +34,7 @@ account ids. Do not enable it on a dev server exposed beyond your machine.
 
 ## What this package does not protect against
 
-The account guard compares two *declared* values: the config's `account_id` and
+The account guard compares two _declared_ values: the config's `account_id` and
 `CLOUDFLARE_ACCOUNT_ID`. It does not contact Cloudflare, so it cannot detect a
 `CLOUDFLARE_API_TOKEN` scoped to a different account than the one both of those
 agree on. It catches a stale environment variable from another project; it does

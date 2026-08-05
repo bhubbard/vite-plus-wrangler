@@ -34,10 +34,7 @@ export function checkBundleSize(
 /**
  * Pure JavaScript fallback for bundle size checking.
  */
-export function checkBundleSizeJs(
-  targetPath = "dist",
-  limitMb = 3,
-): BundleSizeReport {
+export function checkBundleSizeJs(targetPath = "dist", limitMb = 3): BundleSizeReport {
   const limitBytes = limitMb * 1024 * 1024;
   const issues: BundleSizeIssue[] = [];
   const files: BundleFileDetails[] = [];

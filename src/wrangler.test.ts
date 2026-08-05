@@ -2,14 +2,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { assertBundleSize, checkBundleSize, checkBundleSizeJs } from "./bundle.js";
+import { assertBundleSize, checkBundleSizeJs } from "./bundle.js";
+
 import { d1Tasks, resolveMigrationsDir } from "./d1.js";
 import { assertConfigLint, checkConfigLint } from "./lint.js";
 import { assertIdentifier, assertPort, join, quote, wranglerFlags } from "./shell.js";
 import { kvTasks, r2Tasks } from "./storage.js";
 import { wranglerTasks } from "./tasks.js";
 
-type Cmd = Record<string, { command: string | string[]; cache?: boolean; persistent?: boolean; inputs?: string[] }>;
+type Cmd = Record<
+  string,
+  { command: string | string[]; cache?: boolean; persistent?: boolean; inputs?: string[] }
+>;
 
 describe("wranglerTasks", () => {
   it("emits the core Cloudflare task set", () => {
@@ -35,11 +39,21 @@ describe("wranglerTasks", () => {
     expect(defaultTail.cache).toBe(false);
     expect(defaultTail.persistent).toBe(true);
 
-    const jsonTail = (wranglerTasks({ config: "wrangler.toml", env: "dev", tailFormat: "json" }) as Cmd)["cf:tail"]!;
+    const jsonTail = (
+      wranglerTasks({ config: "wrangler.toml", env: "dev", tailFormat: "json" }) as Cmd
+    )["cf:tail"]!;
     expect(jsonTail.command).toBe("wrangler tail --config wrangler.toml --env dev --format json");
 
-    const prettyTail = (wranglerTasks({ config: "wrangler.toml", tailFormat: "pretty", tailArgs: ["--status", "error"] }) as Cmd)["cf:tail"]!;
-    expect(prettyTail.command).toBe("wrangler tail --config wrangler.toml --format pretty --status error");
+    const prettyTail = (
+      wranglerTasks({
+        config: "wrangler.toml",
+        tailFormat: "pretty",
+        tailArgs: ["--status", "error"],
+      }) as Cmd
+    )["cf:tail"]!;
+    expect(prettyTail.command).toBe(
+      "wrangler tail --config wrangler.toml --format pretty --status error",
+    );
   });
 
   it("adds KV seed task when kv or kvSeed options are provided", () => {
@@ -124,16 +138,22 @@ describe("d1Tasks", () => {
 describe("kvTasks", () => {
   it("generates default kv seed command", () => {
     const tasks = kvTasks({ binding: "MY_KV", config: "wrangler.toml" }) as Cmd;
-    expect(tasks["cf:kv:seed"]!.command).toBe("wrangler kv bulk put kv-seed.json --binding MY_KV --local --config wrangler.toml");
+    expect(tasks["cf:kv:seed"]!.command).toBe(
+      "wrangler kv bulk put kv-seed.json --binding MY_KV --local --config wrangler.toml",
+    );
     expect(tasks["cf:kv:seed"]!.cache).toBe(false);
   });
 
   it("supports custom seed file and key put payload", () => {
     const jsonTasks = kvTasks({ binding: "MY_KV", seed: "fixtures/custom.json" }) as Cmd;
-    expect(jsonTasks["cf:kv:seed"]!.command).toBe("wrangler kv bulk put fixtures/custom.json --binding MY_KV --local");
+    expect(jsonTasks["cf:kv:seed"]!.command).toBe(
+      "wrangler kv bulk put fixtures/custom.json --binding MY_KV --local",
+    );
 
     const keyPutTasks = kvTasks({ binding: "MY_KV", seed: "mykey myval" }) as Cmd;
-    expect(keyPutTasks["cf:kv:seed"]!.command).toBe("wrangler kv key put mykey myval --binding MY_KV --local");
+    expect(keyPutTasks["cf:kv:seed"]!.command).toBe(
+      "wrangler kv key put mykey myval --binding MY_KV --local",
+    );
   });
 
   it("validates binding identifier for shell safety", () => {
@@ -144,13 +164,17 @@ describe("kvTasks", () => {
 describe("r2Tasks", () => {
   it("generates default r2 sync command", () => {
     const tasks = r2Tasks({ bucket: "MY_BUCKET", config: "wrangler.toml" }) as Cmd;
-    expect(tasks["cf:r2:sync"]!.command).toBe("wrangler r2 object put MY_BUCKET --file public --local --config wrangler.toml");
+    expect(tasks["cf:r2:sync"]!.command).toBe(
+      "wrangler r2 object put MY_BUCKET --file public --local --config wrangler.toml",
+    );
     expect(tasks["cf:r2:sync"]!.cache).toBe(false);
   });
 
   it("supports custom sync directory and env flag", () => {
     const tasks = r2Tasks({ bucket: "UPLOADS", syncDir: "dist/assets", env: "staging" }) as Cmd;
-    expect(tasks["cf:r2:sync"]!.command).toBe("wrangler r2 object put UPLOADS --file dist/assets --local --env staging");
+    expect(tasks["cf:r2:sync"]!.command).toBe(
+      "wrangler r2 object put UPLOADS --file dist/assets --local --env staging",
+    );
   });
 
   it("validates bucket identifier for shell safety", () => {
@@ -315,7 +339,11 @@ describe("config lint helpers", () => {
   it("checkConfigLint reports missing file errors", () => {
     const report = checkConfigLint("non_existent_wrangler.toml");
     expect(report.ok).toBe(false);
-    expect(report.issues.some((i) => i.message.includes("Lint check could not run") || i.message.includes("not found"))).toBe(true);
+    expect(
+      report.issues.some(
+        (i) => i.message.includes("Lint check could not run") || i.message.includes("not found"),
+      ),
+    ).toBe(true);
   });
 
   it("assertConfigLint throws on missing or invalid file", () => {
@@ -345,7 +373,9 @@ describe("codebase AST binding helpers", () => {
   it("generates cf:bindings task with srcDir option", () => {
     const tasks = wranglerTasks({ config: "wrangler.toml", srcDir: "app" }) as Cmd;
     expect(tasks["cf:bindings"]).toBeDefined();
-    expect(tasks["cf:bindings"]!.command).toBe("vite-plus-wrangler bindings-check wrangler.toml --src app");
+    expect(tasks["cf:bindings"]!.command).toBe(
+      "vite-plus-wrangler bindings-check wrangler.toml --src app",
+    );
   });
 
   it("assertCodeBindings throws when missing bindings exist", async () => {
@@ -378,6 +408,3 @@ describe("secrets assertion helpers", () => {
     expect(() => assertSecrets("non_existent_wrangler.toml")).not.toThrow(); // Secrets report missing file as warning, ok = true
   });
 });
-
-
-
